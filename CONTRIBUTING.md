@@ -1,5 +1,7 @@
-Welcome to RequeueIP! If you are interested in contributing to the RequeueIP code repo then checkout the Contributor's Guide
+# Contributing Guide
 
-## Refenerce
+*Thanks for considering contributing to RequeueIP! This document outlines the canonical procedure for contributing new features and bugfixes to RequeueIP. Following these steps will help ensure that your contribution gets merged quickly and efficiently.*
+
+## Reference
+
 * [Conventional Commits](https://www.conventionalcommits.org/)
-* [Semantic Versioning](https://semver.org/)

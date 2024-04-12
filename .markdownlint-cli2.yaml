@@ -1,0 +1,4 @@
+# Disable some build-in rules
+config:
+  line-length: false
+  MD014: false
