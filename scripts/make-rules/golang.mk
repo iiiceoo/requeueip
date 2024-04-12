@@ -13,6 +13,7 @@
 # limitations under the License.
 
 GO := go
+GO_VERSION := $(shell awk '/^go /{print $$2}' go.mod | head -n1)
 GO_LDFLAGS += -X $(VERSION_PACKAGE).Version=$(VERSION) \
 	-X $(VERSION_PACKAGE).GitCommit=$(GIT_COMMIT) \
 	-X $(VERSION_PACKAGE).BuildDate=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')

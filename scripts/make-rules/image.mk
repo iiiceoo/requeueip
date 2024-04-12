@@ -15,8 +15,8 @@
 DOCKER := docker
 
 REGISTRY_PREFIX ?= ghcr.io/sauto4/requeueip
-BUILDER_IMAGE ?= docker.io/library/golang:1.20
-BASE_IMAGE ?= docker.io/library/ubuntu:latest
+BUILDER_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
+BASE_IMAGE ?= gcr.io/distroless/static:nonroot
 
 # Determine image files by looking into images/*/Dockerfile.
 IMAGES_DIR ?= $(wildcard ${ROOT_DIR}/images/*)
@@ -60,4 +60,4 @@ image.load: $(addprefix image.load., $(IMAGES))
 image.load.%: kind.cluster
 	$(eval IMAGE := $*)
 	@echo "==> Loading image $(REGISTRY_PREFIX)/$(IMAGE):$(VERSION) to kind cluster $(GIT_BRANCH)"
-	kind load docker-image $(REGISTRY_PREFIX)/$(IMAGE):$(VERSION) -n $(GIT_BRANCH)
+	$(KIND) load docker-image $(REGISTRY_PREFIX)/$(IMAGE):$(VERSION) -n $(GIT_BRANCH)

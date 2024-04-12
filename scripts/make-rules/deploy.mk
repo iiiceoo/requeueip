@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+KIND := kind
 HELM := helm
 KUBECTL := kubectl
 
-NODE_IMAGE ?= kindest/node:v1.27.1
+NODE_IMAGE ?= kindest/node:v1.29.2
 KIND_CONFIG ?= scripts/kind/kind-config.yaml
 
 .PHONY: deploy.kind
@@ -30,12 +31,12 @@ kind.cluster: tools.verify.kind
 	@if [ $(EXIST) -ne 1 ]; then \
 		echo "kind cluster $(GIT_BRANCH) already exist"; \
 	else \
-		kind create cluster --image $(NODE_IMAGE) --config $(KIND_CONFIG) --name $(GIT_BRANCH); \
+		$(KIND) create cluster --image $(NODE_IMAGE) --config $(KIND_CONFIG) --name $(GIT_BRANCH); \
 	fi
 
 .PHONY: kind.clean
 kind.clean: tools.verify.kind
-	@kind delete cluster --name $(GIT_BRANCH)
+	@$(KIND) delete cluster --name $(GIT_BRANCH)
 
 .PHONY: kind.use-context
 kind.use-context:
