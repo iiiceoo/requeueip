@@ -22,15 +22,12 @@ import (
 
 // SautoSubnetSpec defines the desired state of SautoSubnet.
 type SautoSubnetSpec struct {
-	// +kubebuilder:validation:Enum=4;6
+	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Optional
 	Version *string `json:"version,omitempty"`
 
 	// +kubebuilder:validation:Required
 	CIDR string `json:"cidr"`
-
-	// +kubebuilder:validation:Optional
-	ExcludedIPs []string `json:"excludedIPs,omitempty"`
 }
 
 // SautoSubnetStatus defines the observed state of SautoSubnet.

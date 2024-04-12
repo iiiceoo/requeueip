@@ -22,18 +22,15 @@ import (
 
 // SautoIPPoolSpec defines the desired state of SautoIPPool.
 type SautoIPPoolSpec struct {
-	// +kubebuilder:validation:Enum=4;6
+	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Optional
 	Version *string `json:"version,omitempty"`
-
-	// +kubebuilder:validation:Required
-	CIDR string `json:"cidr"`
 
 	// +kubebuilder:validation:Optional
 	IPs []string `json:"ips,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	ExcludedIPs []string `json:"excludedIPs,omitempty"`
+	Exclude []string `json:"exclude,omitempty"`
 }
 
 // SautoIPPoolStatus defines the observed state of SautoIPPool.
@@ -44,7 +41,6 @@ type SautoIPPoolStatus struct {
 
 // +kubebuilder:resource:categories={requeueip},path="sautoippools",scope="Cluster",shortName={sp},singular="sautoippool"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
-// +kubebuilder:printcolumn:JSONPath=".spec.cidr",description="cidr",name="CIDR",type=string
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
