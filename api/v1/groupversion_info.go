@@ -23,11 +23,13 @@ package v1
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
+
+	"github.com/sauto4/requeueip/pkg/consts"
 )
 
 var (
 	// GroupVersion is group version used to register these objects.
-	GroupVersion = schema.GroupVersion{Group: "requeueip.sauto4.io", Version: "v1"}
+	GroupVersion = schema.GroupVersion{Group: consts.RAPIGroup, Version: consts.RAPIVersion}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

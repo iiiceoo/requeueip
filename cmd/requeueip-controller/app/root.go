@@ -22,6 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sauto4/requeueip/cmd/requeueip-controller/app/run"
 	"github.com/sauto4/requeueip/cmd/requeueip-controller/app/version"
 )
 
@@ -39,4 +40,5 @@ func Excute() {
 
 func init() {
 	rootCmd.AddCommand(version.VersionCmd())
+	rootCmd.AddCommand(run.RunCmd())
 }

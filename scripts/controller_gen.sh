@@ -77,9 +77,9 @@ manifests_verify() {
   diff -Naupr ${OUTPUT_TMP_DIR} ${OUTPUT_DIFF_DIR} || ret=$?
 
   if [[ $ret -eq 0 ]];then
-    echo "Artifacts is up to date."
+    echo "Artifacts is up to date"
   else
-    echo "Error: Artifacts is out of date, run 'make manifests'."
+    echo "Error: Artifacts is out of date, run 'make manifests'"
     exit 1
   fi
 }
