@@ -1,0 +1,47 @@
+# Default values for kfeature.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+nameOverride: ""
+fullnameOverride: ""
+clusterDomain: cluster.local
+controller:
+  replicas: 1
+  image:
+    registry: ghcr.io/sauto4/requeueip
+    repository: requeueip-controller
+    tag: ""
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 500Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
+  imagePullSecrets: []
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  config: {}
+metricsService:
+  type: ClusterIP
+  port: 8443
+webhookService:
+  type: ClusterIP
+  port: 9443
+tls:
+  auto:
+    caValidityDuration: 3650
+    certValidityDuration: 3650
+    extraIPAddresses: []
+    extraDNSNames: []

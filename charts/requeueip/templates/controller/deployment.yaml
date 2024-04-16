@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "requeueip.controller" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "requeueip.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  selector:
+    matchLabels:
+      {{- include "requeueip.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "requeueip.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: requeueip-controller
+        image: "{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default (print "v" .Chart.AppVersion) }}"
+        imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
+        command:
+        - requeueip-controller
+        args:
+        - run
+        ports:
+        - name: metrics
+          containerPort: 8443
+          protocol: TCP
+        - name: webhook
+          containerPort: 9443
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: {{ .Values.controller.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.controller.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.controller.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.controller.livenessProbe.failureThreshold }}
+          successThreshold: {{ .Values.controller.livenessProbe.successThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: {{ .Values.controller.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.controller.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.controller.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.controller.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.controller.readinessProbe.successThreshold }}
+        resources: {{- toYaml .Values.controller.resources | nindent 10}}
+        volumeMounts:
+        - name: requeueip-config
+          mountPath: /etc/requeueip/
+          readOnly: true
+      serviceAccountName: {{ include "requeueip.controller" . }}
+      {{- with .Values.controller.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: requeueip-config
+        configMap:
+          name: {{ include "requeueip.fullname" . }}-config

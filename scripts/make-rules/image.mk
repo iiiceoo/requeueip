@@ -15,7 +15,7 @@
 DOCKER := docker
 
 REGISTRY_PREFIX ?= ghcr.io/sauto4/requeueip
-BUILDER_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
+BUILDER_IMAGE ?= golang:$(GO_VERSION)
 BASE_IMAGE ?= gcr.io/distroless/static:nonroot
 
 # Determine image files by looking into images/*/Dockerfile.
