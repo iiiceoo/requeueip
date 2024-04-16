@@ -1,0 +1,9 @@
+package: v1
+generate:
+  models: true
+  client: true
+  gorilla-server: true
+  strict-server: true
+  embedded-spec: true
+output-options:
+  skip-prune: true

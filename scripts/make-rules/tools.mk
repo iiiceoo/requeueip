@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEP_TOOLS ?= gsemver goimports golines golangci-lint
+DEP_TOOLS ?= gsemver goimports golines golangci-lint controller-gen oapi-codegen
 OTHER_TOOLS ?= ginkgo helm-docs kind
 
 .PHONY: tools.install
@@ -56,6 +56,14 @@ install.helm-docs:
 .PHONY: install.kind
 install.kind:
 	@$(GO) install sigs.k8s.io/kind@v0.22.0
+
+.PHONY: install.controller-gen
+install.controller-gen:
+	@$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+
+.PHONY: install.oapi-codegen
+install.oapi-codegen:
+	@$(GO) install github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@latest
 
 .PHONY: install.markdownlint-cli2
 install.markdownlint-cli2:

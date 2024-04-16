@@ -21,7 +21,6 @@ set -o pipefail
 # CONST
 PROJECT_ROOT=$(dirname ${BASH_SOURCE[0]})/..
 CONTROLLER_GEN_TMP_DIR=${CONTROLLER_GEN_TMP_DIR:-${PROJECT_ROOT}/.controller_gen_tmp}
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${PROJECT_ROOT}; ls -d -1 ./vendor/sigs.k8s.io/controller-tools/cmd/controller-gen)}
 
 # ENV
 # Defines the output path for the artifacts controller-gen generates
@@ -31,11 +30,6 @@ OUTPUT_TMP_DIR=${OUTPUT_TMP_DIR:-${CONTROLLER_GEN_TMP_DIR}/old}
 # Defines the output path of the latest artifacts for diffing
 OUTPUT_DIFF_DIR=${OUTPUT_DIFF_DIR:-${CONTROLLER_GEN_TMP_DIR}/new}
 
-
-
-controller-gen() {
-  go run ${PROJECT_ROOT}/${CODEGEN_PKG}/main.go $@
-}
 
 manifests_clean() {
   rm -rf ${OUTPUT_BASE_DIR}/crds/*
@@ -83,9 +77,9 @@ manifests_verify() {
   diff -Naupr ${OUTPUT_TMP_DIR} ${OUTPUT_DIFF_DIR} || ret=$?
 
   if [[ $ret -eq 0 ]];then
-    echo "The Artifacts is up to date."
+    echo "Artifacts is up to date."
   else
-    echo "Error: The Artifacts is out of date! Please run 'make manifests'."
+    echo "Error: Artifacts is out of date, run 'make manifests'."
     exit 1
   fi
 }

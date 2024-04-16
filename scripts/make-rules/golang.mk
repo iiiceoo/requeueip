@@ -55,9 +55,9 @@ go.lint: tools.verify.golangci-lint
 	@golangci-lint run -c $(ROOT_DIR)/.golangci.yaml $(ROOT_DIR)/...
 
 .PHONY: go.test
-go.test:
+go.test: tools.verify.ginkgo
 	@echo "==> Run unit tests"
-	@scripts/ginkgo.sh -vv -p --randomize-suites --randomize-all --timeout=2m \
+	@ginkgo -vv -p --randomize-suites --randomize-all --timeout=2m \
 		--cover --output-dir=$(OUTPUT_DIR) --coverprofile=coverprofile.out \
 		-r $(ROOT_DIR)/pkg
 	@$(GO) tool cover -html=$(OUTPUT_DIR)/coverprofile.out -o $(OUTPUT_DIR)/coverage.html
