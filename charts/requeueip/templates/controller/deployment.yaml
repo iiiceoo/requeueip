@@ -50,7 +50,7 @@ spec:
           successThreshold: {{ .Values.controller.readinessProbe.successThreshold }}
         resources: {{- toYaml .Values.controller.resources | nindent 10}}
         volumeMounts:
-        - name: requeueip-config
+        - name: requeueip-controller-config
           mountPath: /etc/requeueip/
           readOnly: true
       serviceAccountName: {{ include "requeueip.controller" . }}
@@ -59,6 +59,6 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
-      - name: requeueip-config
+      - name: requeueip-controller-config
         configMap:
-          name: {{ include "requeueip.fullname" . }}-config
+          name: {{ include "requeueip.controller" . }}-config

@@ -45,4 +45,6 @@ kind.use-context:
 .PHONY: kind.charts
 kind.charts: kind.cluster
 	@$(HELM) upgrade requeueip charts/requeueip/ -n kube-system \
-	--wait --install --kube-context kind-$(GIT_BRANCH)
+	--wait --install --kube-context kind-$(GIT_BRANCH) \
+	--set controller.image.registry=$(REGISTRY_PREFIX) \
+	--set controller.image.tag=$(VERSION)

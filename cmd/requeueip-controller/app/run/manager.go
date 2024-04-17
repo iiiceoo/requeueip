@@ -26,6 +26,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	runtimeconfig "sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -70,9 +71,10 @@ func run(ctx context.Context) error {
 
 	logger.Info("Create controller manager")
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Logger:  logger,
-		Scheme:  scheme,
-		Metrics: metricsserver.Options{BindAddress: arg.metricsAddr},
+		Logger:     logger,
+		Scheme:     scheme,
+		Controller: runtimeconfig.Controller{MaxConcurrentReconciles: arg.workers},
+		Metrics:    metricsserver.Options{BindAddress: arg.metricsAddr},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Host:    arg.webhookHost,
 			Port:    arg.webhookPort,
