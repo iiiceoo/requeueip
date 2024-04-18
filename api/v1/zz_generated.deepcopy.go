@@ -147,13 +147,13 @@ func (in *SautoIPPoolSpec) DeepCopyInto(out *SautoIPPoolSpec) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.IPs != nil {
-		in, out := &in.IPs, &out.IPs
+	if in.Ranges != nil {
+		in, out := &in.Ranges, &out.Ranges
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.Exclude != nil {
-		in, out := &in.Exclude, &out.Exclude
+	if in.Exclusion != nil {
+		in, out := &in.Exclusion, &out.Exclusion
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

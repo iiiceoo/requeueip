@@ -48,11 +48,11 @@ spec:
           spec:
             description: SautoIPPoolSpec defines the desired state of SautoIPPool.
             properties:
-              exclude:
+              exclusion:
                 items:
                   type: string
                 type: array
-              ips:
+              ranges:
                 items:
                   type: string
                 type: array

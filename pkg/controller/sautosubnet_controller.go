@@ -18,12 +18,17 @@ package controller
 
 import (
 	"context"
+	"reflect"
 
+	"github.com/iiiceoo/iprange"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
+	"github.com/iiiceoo/requeueip/pkg/consts"
 )
 
 func NewSautoSubnetReconciler(c client.Client) *sautoSubnetReconciler {
@@ -39,7 +44,7 @@ type sautoSubnetReconciler struct {
 func (r *sautoSubnetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&requeueipv1.SautoSubnet{}).
-		Owns(&requeueipv1.SautoIPPool{}).
+		Watches(&requeueipv1.SautoIPPool{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSautoSubnet)).
 		Complete(r)
 }
 
@@ -49,6 +54,45 @@ func (r *sautoSubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var ss requeueipv1.SautoSubnet
 	if err := r.client.Get(ctx, req.NamespacedName, &ss); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	var spList requeueipv1.SautoIPPoolList
+	if err := r.client.List(ctx, &spList, client.MatchingLabels{consts.ManagedBySubnet: ss.Name}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(spList.Items) == 0 && !ss.DeletionTimestamp.IsZero() {
+		controllerutil.RemoveFinalizer(&ss, consts.RFinalizer)
+		return ctrl.Result{}, r.client.Update(ctx, &ss)
+	}
+
+	var ps, eps []string
+	for _, sp := range spList.Items {
+		ps = append(ps, sp.Spec.Ranges...)
+		eps = append(eps, sp.Spec.Exclusion...)
+	}
+
+	use, err := iprange.Parse(ps...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	all, err := iprange.Parse(ss.Spec.CIDR)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	exclusion, err := iprange.Parse(eps...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	free := all.Diff(exclusion).Diff(use)
+	if reflect.DeepEqual(free.Strings(), ss.Status.Free) {
+		return ctrl.Result{}, nil
+	}
+
+	ss.Status.Free = free.Strings()
+	if err := r.client.Status().Update(ctx, &ss); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

@@ -62,7 +62,7 @@ func (r *sautoIPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	if len(siList.Items) == 0 && sp.DeletionTimestamp.IsZero() {
+	if len(siList.Items) == 0 && !sp.DeletionTimestamp.IsZero() {
 		// TODO(iiiceoo): Owner terminating or no longer exists.
 		controllerutil.RemoveFinalizer(&sp, consts.RFinalizer)
 		return ctrl.Result{}, r.client.Update(ctx, &sp)
@@ -78,20 +78,20 @@ func (r *sautoIPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		ips = append(ips, ip.String())
 	}
 
-	used, err := iprange.Parse(ips...)
+	use, err := iprange.Parse(ips...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	all, err := iprange.Parse(sp.Spec.IPs...)
+	all, err := iprange.Parse(sp.Spec.Ranges...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	excluded, err := iprange.Parse(sp.Spec.Exclude...)
+	exclusion, err := iprange.Parse(sp.Spec.Exclusion...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	free := all.Diff(excluded).Diff(used)
+	free := all.Diff(exclusion).Diff(use)
 	if reflect.DeepEqual(free.Strings(), sp.Status.Free) {
 		return ctrl.Result{}, nil
 	}

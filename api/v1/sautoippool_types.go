@@ -27,10 +27,10 @@ type SautoIPPoolSpec struct {
 	Version *string `json:"version,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	IPs []string `json:"ips,omitempty"`
+	Ranges []string `json:"ranges,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	Exclude []string `json:"exclude,omitempty"`
+	Exclusion []string `json:"exclusion,omitempty"`
 }
 
 // SautoIPPoolStatus defines the observed state of SautoIPPool.
