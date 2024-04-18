@@ -31,3 +31,10 @@ const (
 	RPrefix    = requeueip
 	RFinalizer = RPrefix + "/" + "protection"
 )
+
+const mb = "managed-by"
+
+const (
+	ManagedBySubnet = "subnet" + "." + RPrefix + "/" + mb
+	ManagedByIPPool = "ippool" + "." + RPrefix + "/" + mb
+)

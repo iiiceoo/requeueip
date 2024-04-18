@@ -1,4 +1,4 @@
-module github.com/sauto4/requeueip
+module github.com/iiiceoo/requeueip
 
 go 1.20
 
@@ -6,6 +6,7 @@ require (
 	github.com/getkin/kin-openapi v0.124.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/gorilla/mux v1.8.1
+	github.com/iiiceoo/iprange v0.1.4
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/spf13/cobra v1.8.0
 	go.uber.org/zap v1.26.0

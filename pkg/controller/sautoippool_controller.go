@@ -18,12 +18,18 @@ package controller
 
 import (
 	"context"
+	"reflect"
 
+	"github.com/iiiceoo/iprange"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	requeueipv1 "github.com/sauto4/requeueip/api/v1"
+	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
+	"github.com/iiiceoo/requeueip/pkg/consts"
+	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
 func NewSautoIPPoolReconciler(c client.Client) *sautoIPPoolReconciler {
@@ -39,7 +45,7 @@ type sautoIPPoolReconciler struct {
 func (r *sautoIPPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&requeueipv1.SautoIPPool{}).
-		Owns(&requeueipv1.SautoIP{}).
+		Watches(&requeueipv1.SautoIP{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSautoIPPool)).
 		Complete(r)
 }
 
@@ -49,6 +55,50 @@ func (r *sautoIPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var sp requeueipv1.SautoIPPool
 	if err := r.client.Get(ctx, req.NamespacedName, &sp); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	var siList requeueipv1.SautoIPList
+	if err := r.client.List(ctx, &siList, client.MatchingLabels{consts.ManagedByIPPool: sp.Name}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(siList.Items) == 0 && sp.DeletionTimestamp.IsZero() {
+		// TODO(iiiceoo): Owner terminating or no longer exists.
+		controllerutil.RemoveFinalizer(&sp, consts.RFinalizer)
+		return ctrl.Result{}, r.client.Update(ctx, &sp)
+	}
+
+	ips := make([]string, 0, len(siList.Items))
+	for _, si := range siList.Items {
+		ip, err := net.NameToIP(*sp.Spec.Version, si.Name)
+		if err != nil {
+			// TODO(iiiceoo): Log.
+			continue
+		}
+		ips = append(ips, ip.String())
+	}
+
+	used, err := iprange.Parse(ips...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	all, err := iprange.Parse(sp.Spec.IPs...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	excluded, err := iprange.Parse(sp.Spec.Exclude...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	free := all.Diff(excluded).Diff(used)
+	if reflect.DeepEqual(free.Strings(), sp.Status.Free) {
+		return ctrl.Result{}, nil
+	}
+
+	sp.Status.Free = free.Strings()
+	if err := r.client.Status().Update(ctx, &sp); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

@@ -76,6 +76,9 @@ github.com/google/uuid
 # github.com/gorilla/mux v1.8.1
 ## explicit; go 1.20
 github.com/gorilla/mux
+# github.com/iiiceoo/iprange v0.1.4
+## explicit; go 1.18
+github.com/iiiceoo/iprange
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo

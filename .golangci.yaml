@@ -16,7 +16,7 @@ linters-settings:
       - pattern: 'interface{}'
         replacement: 'any'
   goimports:
-    local-prefixes: github.com/sauto4/requeueip
+    local-prefixes: github.com/iiiceoo/requeueip
   goheader:
     template-path: scripts/boilerplate.txt
 

@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sauto4/requeueip/cmd/requeueip/app/version"
+	"github.com/iiiceoo/requeueip/cmd/requeueip/app/version"
 )
 
 var bin = filepath.Base(os.Args[0])

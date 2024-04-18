@@ -22,8 +22,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sauto4/requeueip/cmd/requeueip-controller/app/run"
-	"github.com/sauto4/requeueip/cmd/requeueip-controller/app/version"
+	"github.com/iiiceoo/requeueip/cmd/requeueip-controller/app/run"
+	"github.com/iiiceoo/requeueip/cmd/requeueip-controller/app/version"
 )
 
 var bin = filepath.Base(os.Args[0])

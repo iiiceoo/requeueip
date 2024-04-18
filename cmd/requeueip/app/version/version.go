@@ -19,7 +19,7 @@ package version
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/sauto4/requeueip/internal/version"
+	"github.com/iiiceoo/requeueip/internal/version"
 )
 
 var versionCmd = &cobra.Command{

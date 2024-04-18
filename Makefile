@@ -21,8 +21,8 @@ all: fmt tidy vendor
 # ==============================================================================
 # Build options
 
-ROOT_PACKAGE=github.com/sauto4/requeueip
-VERSION_PACKAGE=github.com/sauto4/requeueip/internal/version
+ROOT_PACKAGE=github.com/iiiceoo/requeueip
+VERSION_PACKAGE=github.com/iiiceoo/requeueip/internal/version
 
 # ==============================================================================
 # Includes

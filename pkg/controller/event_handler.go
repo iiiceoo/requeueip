@@ -14,10 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package controller
 
-import "github.com/iiiceoo/requeueip/cmd/requeueipd/app"
+import (
+	"context"
 
-func main() {
-	app.Excute()
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/iiiceoo/requeueip/pkg/consts"
+)
+
+var mapFuncForSautoIPPool = func(ctx context.Context, o client.Object) []reconcile.Request {
+	labels := o.GetLabels()
+	if labels == nil {
+		return nil
+	}
+
+	v, ok := labels[consts.ManagedByIPPool]
+	if !ok {
+		return nil
+	}
+
+	return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: v}}}
 }

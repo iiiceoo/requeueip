@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-import "github.com/sauto4/requeueip/cmd/requeueip/app"
+import "github.com/iiiceoo/requeueip/cmd/requeueip/app"
 
 func main() {
 	app.Excute()

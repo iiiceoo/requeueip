@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	requeueipv1 "github.com/sauto4/requeueip/api/v1"
+	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 )
 
 func NewSautoSubnetReconciler(c client.Client) *sautoSubnetReconciler {
