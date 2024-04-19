@@ -27,6 +27,10 @@ spec:
       jsonPath: .spec.cidr
       name: CIDR
       type: string
+    - description: blockSize
+      jsonPath: .spec.blockSize
+      name: BLOCK-SIZE
+      type: int
     name: v1
     schema:
       openAPIV3Schema:
@@ -52,6 +56,12 @@ spec:
           spec:
             description: SautoSubnetSpec defines the desired state of SautoSubnet.
             properties:
+              blockSize:
+                default: 30
+                format: int32
+                maximum: 30
+                minimum: 26
+                type: integer
               cidr:
                 type: string
               version:

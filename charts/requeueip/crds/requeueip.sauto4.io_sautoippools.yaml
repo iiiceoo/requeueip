@@ -16,7 +16,7 @@ spec:
     shortNames:
     - sp
     singular: sautoippool
-  scope: Cluster
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - description: version
@@ -48,10 +48,6 @@ spec:
           spec:
             description: SautoIPPoolSpec defines the desired state of SautoIPPool.
             properties:
-              exclusion:
-                items:
-                  type: string
-                type: array
               ranges:
                 items:
                   type: string

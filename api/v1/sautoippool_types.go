@@ -28,9 +28,6 @@ type SautoIPPoolSpec struct {
 
 	// +kubebuilder:validation:Optional
 	Ranges []string `json:"ranges,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	Exclusion []string `json:"exclusion,omitempty"`
 }
 
 // SautoIPPoolStatus defines the observed state of SautoIPPool.
@@ -39,7 +36,7 @@ type SautoIPPoolStatus struct {
 	Free []string `json:"free,omitempty"`
 }
 
-// +kubebuilder:resource:categories={requeueip},path="sautoippools",scope="Cluster",shortName={sp},singular="sautoippool"
+// +kubebuilder:resource:categories={requeueip},path="sautoippools",scope="Namespaced",shortName={sp},singular="sautoippool"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status

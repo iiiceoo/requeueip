@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:rbac:groups=requeueip.sauto4.io,resources=sautosubnets;sautoippools;sautoips,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=requeueip.sauto4.io,resources=sautosubnets;sautoipblocks;sautoippools;sautoips,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=requeueip.sauto4.io,resources=sautosubnets/status;sautoippools/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=create;get;update
 

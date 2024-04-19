@@ -32,12 +32,15 @@ var mapFuncForSautoIPPool = func(ctx context.Context, o client.Object) []reconci
 		return nil
 	}
 
-	v, ok := labels[consts.ManagedByIPPool]
+	v, ok := labels[consts.LabelRefIPPool]
 	if !ok {
 		return nil
 	}
 
-	return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: v}}}
+	return []reconcile.Request{{NamespacedName: types.NamespacedName{
+		Namespace: o.GetNamespace(),
+		Name:      v,
+	}}}
 }
 
 var mapFuncForSautoSubnet = func(ctx context.Context, o client.Object) []reconcile.Request {
@@ -46,7 +49,7 @@ var mapFuncForSautoSubnet = func(ctx context.Context, o client.Object) []reconci
 		return nil
 	}
 
-	v, ok := labels[consts.ManagedBySubnet]
+	v, ok := labels[consts.LabelRefSubnet]
 	if !ok {
 		return nil
 	}

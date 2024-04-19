@@ -32,9 +32,9 @@ const (
 	RFinalizer = RPrefix + "/" + "protection"
 )
 
-const mb = "managed-by"
-
 const (
-	ManagedBySubnet = "subnet" + "." + RPrefix + "/" + mb
-	ManagedByIPPool = "ippool" + "." + RPrefix + "/" + mb
+	refPrefix         = "reference" + "." + RPrefix
+	LabelRefNamespace = refPrefix + "/" + "ns"
+	LabelRefSubnet    = refPrefix + "/" + "subnet"
+	LabelRefIPPool    = refPrefix + "/" + "ippool"
 )

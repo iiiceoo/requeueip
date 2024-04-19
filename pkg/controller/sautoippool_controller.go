@@ -58,12 +58,24 @@ func (r *sautoIPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	var siList requeueipv1.SautoIPList
-	if err := r.client.List(ctx, &siList, client.MatchingLabels{consts.ManagedByIPPool: sp.Name}); err != nil {
+	if err := r.client.List(ctx, &siList, client.MatchingLabels{consts.LabelRefIPPool: sp.Name}); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if len(siList.Items) == 0 && !sp.DeletionTimestamp.IsZero() {
 		// TODO(iiiceoo): Owner terminating or no longer exists.
+		// r.client.Get(owner ns/name, unstructed)?
+		if err := r.client.DeleteAllOf(
+			ctx,
+			&requeueipv1.SautoIPBlock{},
+			client.MatchingLabels{
+				consts.LabelRefNamespace: sp.Namespace,
+				consts.LabelRefIPPool:    sp.Name,
+			},
+		); err != nil {
+			return ctrl.Result{}, err
+		}
+
 		controllerutil.RemoveFinalizer(&sp, consts.RFinalizer)
 		return ctrl.Result{}, r.client.Update(ctx, &sp)
 	}
@@ -86,17 +98,13 @@ func (r *sautoIPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	exclusion, err := iprange.Parse(sp.Spec.Exclusion...)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
-	free := all.Diff(exclusion).Diff(use)
-	if reflect.DeepEqual(free.Strings(), sp.Status.Free) {
+	free := all.Diff(use).Strings()
+	if reflect.DeepEqual(free, sp.Status.Free) {
 		return ctrl.Result{}, nil
 	}
 
-	sp.Status.Free = free.Strings()
+	sp.Status.Free = free
 	if err := r.client.Status().Update(ctx, &sp); err != nil {
 		return ctrl.Result{}, err
 	}

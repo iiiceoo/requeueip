@@ -27,7 +27,7 @@ const (
 	IPv6 = "IPv6"
 )
 
-// CIDRToName converts an CIDR to a resource name.
+// CIDRToName converts CIDR to a resource name.
 func CIDRToName(cidr *net.IPNet) string {
 	n := cidr.String()
 	n = strings.Replace(n, ".", "-", 3)
@@ -37,7 +37,31 @@ func CIDRToName(cidr *net.IPNet) string {
 	return n
 }
 
-// IPToName converts an IP address to a resource name.
+// NameToCIDR converts resource name to CIDR based on the IP version.
+func NameToCIDR(version, name string) (*net.IPNet, error) {
+	var cidr string
+	switch version {
+	case IPv4:
+		parts := strings.Split(name, "-")
+		if len(parts) != 5 {
+			return nil, fmt.Errorf("invalid IPv4 CIDR name: %s", name)
+		}
+		cidr = strings.Join(parts[:4], ".") + "/" + parts[4]
+	case IPv6:
+		cidr = strings.ReplaceAll(name, "-", ":")
+	default:
+		return nil, fmt.Errorf("invalid IP version: %s", version)
+	}
+
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s CIDR %s: %w", version, cidr, err)
+	}
+
+	return ipNet, nil
+}
+
+// IPToName converts IP address to resource name.
 func IPToName(ip net.IP) string {
 	n := ip.String()
 	n = strings.Replace(n, ".", "-", 3)
@@ -46,7 +70,7 @@ func IPToName(ip net.IP) string {
 	return n
 }
 
-// NameToIP converts a resource name to an IP address based on the IP version.
+// NameToIP converts resource name to IP address based on the IP version.
 func NameToIP(version, name string) (net.IP, error) {
 	var sep string
 	switch version {

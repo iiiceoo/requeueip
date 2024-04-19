@@ -15,12 +15,14 @@ rules:
 - apiGroups:
   - requeueip.sauto4.io
   resources:
+  - sautoipblocks
   - sautoippools
   - sautoips
   - sautosubnets
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch

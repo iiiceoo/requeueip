@@ -20,29 +20,29 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SautoIPStatus defines the observed state of SautoIP.
-type SautoIPStatus struct{}
+// SautoIPBlockStatus defines the observed state of SautoIPBlock.
+type SautoIPBlockStatus struct{}
 
-// +kubebuilder:resource:categories={requeueip},path="sautoips",scope="Namespaced",shortName={si},singular="sautoip"
+// +kubebuilder:resource:categories={requeueip},path="sautoipblocks",scope="Cluster",shortName={sb},singular="sautoipblock"
 // +kubebuilder:object:root=true
 
-// SautoIP is the Schema for the SautoIPs API.
-type SautoIP struct {
+// SautoIPBlock is the Schema for the SautoIPBlocks API.
+type SautoIPBlock struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Status SautoIPStatus `json:"status,omitempty"`
+	Status SautoIPBlockStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// SautoIPList contains a list of SautoIP.
-type SautoIPList struct {
+// SautoIPBlockList contains a list of SautoIPBlock.
+type SautoIPBlockList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SautoIP `json:"items"`
+	Items           []SautoIPBlock `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&SautoIP{}, &SautoIPList{})
+	SchemeBuilder.Register(&SautoIPBlock{}, &SautoIPBlockList{})
 }

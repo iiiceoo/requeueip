@@ -29,6 +29,7 @@ import (
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
+	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
 func NewSautoSubnetReconciler(c client.Client) *sautoSubnetReconciler {
@@ -44,7 +45,7 @@ type sautoSubnetReconciler struct {
 func (r *sautoSubnetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&requeueipv1.SautoSubnet{}).
-		Watches(&requeueipv1.SautoIPPool{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSautoSubnet)).
+		Watches(&requeueipv1.SautoIPBlock{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSautoSubnet)).
 		Complete(r)
 }
 
@@ -56,23 +57,27 @@ func (r *sautoSubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var spList requeueipv1.SautoIPPoolList
-	if err := r.client.List(ctx, &spList, client.MatchingLabels{consts.ManagedBySubnet: ss.Name}); err != nil {
+	var sbList requeueipv1.SautoIPBlockList
+	if err := r.client.List(ctx, &sbList, client.MatchingLabels{consts.LabelRefSubnet: ss.Name}); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if len(spList.Items) == 0 && !ss.DeletionTimestamp.IsZero() {
+	if len(sbList.Items) == 0 && !ss.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(&ss, consts.RFinalizer)
 		return ctrl.Result{}, r.client.Update(ctx, &ss)
 	}
 
-	var ps, eps []string
-	for _, sp := range spList.Items {
-		ps = append(ps, sp.Spec.Ranges...)
-		eps = append(eps, sp.Spec.Exclusion...)
+	blocks := make([]string, 0, len(sbList.Items))
+	for _, sb := range sbList.Items {
+		block, err := net.NameToCIDR(*ss.Spec.Version, sb.Name)
+		if err != nil {
+			// TODO(iiiceoo): Log.
+			continue
+		}
+		blocks = append(blocks, block.String())
 	}
 
-	use, err := iprange.Parse(ps...)
+	use, err := iprange.Parse(blocks...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -80,17 +85,13 @@ func (r *sautoSubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	exclusion, err := iprange.Parse(eps...)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 
-	free := all.Diff(exclusion).Diff(use)
-	if reflect.DeepEqual(free.Strings(), ss.Status.Free) {
+	free := all.Diff(use).Strings()
+	if reflect.DeepEqual(free, ss.Status.Free) {
 		return ctrl.Result{}, nil
 	}
 
-	ss.Status.Free = free.Strings()
+	ss.Status.Free = free
 	if err := r.client.Status().Update(ctx, &ss); err != nil {
 		return ctrl.Result{}, err
 	}

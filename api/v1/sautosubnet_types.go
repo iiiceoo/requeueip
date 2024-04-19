@@ -28,6 +28,12 @@ type SautoSubnetSpec struct {
 
 	// +kubebuilder:validation:Required
 	CIDR string `json:"cidr"`
+
+	// +kubebuilder:default=30
+	// +kubebuilder:validation:Maximum=30
+	// +kubebuilder:validation:Minimum=26
+	// +kubebuilder:validation:Optional
+	BlockSize *int32 `json:"blockSize,omitempty"`
 }
 
 // SautoSubnetStatus defines the observed state of SautoSubnet.
@@ -39,6 +45,7 @@ type SautoSubnetStatus struct {
 // +kubebuilder:resource:categories={requeueip},path="sautosubnets",scope="Cluster",shortName={ss},singular="sautosubnet"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.cidr",description="cidr",name="CIDR",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.blockSize",description="blockSize",name="BLOCK-SIZE",type=int
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
