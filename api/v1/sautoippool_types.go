@@ -33,6 +33,9 @@ type SautoIPPoolSpec struct {
 // SautoIPPoolStatus defines the observed state of SautoIPPool.
 type SautoIPPoolStatus struct {
 	// +kubebuilder:validation:Optional
+	Count *Count `json:"count,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	Free []string `json:"free,omitempty"`
 }
 

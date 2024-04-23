@@ -75,6 +75,19 @@ spec:
           status:
             description: SautoSubnetStatus defines the observed state of SautoSubnet.
             properties:
+              count:
+                properties:
+                  all:
+                    type: string
+                  free:
+                    type: string
+                  used:
+                    type: string
+                required:
+                - all
+                - free
+                - used
+                type: object
               free:
                 items:
                   type: string

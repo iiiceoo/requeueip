@@ -38,3 +38,11 @@ const (
 	LabelRefSubnet    = refPrefix + "/" + "subnet"
 	LabelRefIPPool    = refPrefix + "/" + "ippool"
 )
+
+const AnnoWorkloadUID = RPrefix + "/" + "workload-uid"
+
+const (
+	AnnoIPVersion   = RPrefix + "/" + "ip-version"
+	AnnoIPv4Subnets = RPrefix + "/" + "ipv4-subnets"
+	AnnoIPv6Subnets = RPrefix + "/" + "ipv6-subnets"
+)

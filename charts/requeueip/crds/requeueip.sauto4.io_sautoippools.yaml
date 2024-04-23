@@ -61,6 +61,19 @@ spec:
           status:
             description: SautoIPPoolStatus defines the observed state of SautoIPPool.
             properties:
+              count:
+                properties:
+                  all:
+                    type: string
+                  free:
+                    type: string
+                  used:
+                    type: string
+                required:
+                - all
+                - free
+                - used
+                type: object
               free:
                 items:
                   type: string
