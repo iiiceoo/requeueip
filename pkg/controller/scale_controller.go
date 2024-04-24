@@ -19,10 +19,14 @@ package controller
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"math/big"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/iiiceoo/iprange"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -98,7 +102,12 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	var podList corev1.PodList
-	if err := r.client.List(ctx, &podList, client.MatchingLabelsSelector{Selector: selector}, client.Limit(1)); err != nil {
+	if err := r.client.List(
+		ctx,
+		&podList,
+		client.MatchingLabelsSelector{Selector: selector},
+		client.Limit(1),
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -118,14 +127,18 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	// Invalid IPPool annotation, do nothing, RequeueIP CNI will return an error.
-	v4sa := parseArray(v4subnetsStr)
-	if len(v4sa) == 0 {
+	v4candidates := parseArray(v4subnetsStr)
+	if len(v4candidates) == 0 {
 		// TODO(iiiceoo): Log.
 		return ctrl.Result{}, nil
 	}
 
 	var spList requeueipv1.SautoIPPoolList
-	if err := r.client.List(ctx, &spList, client.MatchingLabels{consts.AnnoWorkloadUID: string(scale.UID)}); err != nil {
+	if err := r.client.List(
+		ctx,
+		&spList,
+		client.MatchingLabels{consts.AnnoWorkloadUID: string(scale.UID)},
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -136,7 +149,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 		if *sp.Spec.Version == net.IPv4 {
 			// The workload has changed the Subnets it expects to assign IP addresses to.
-			if !slices.Contains(v4sa, sp.Name) {
+			if !slices.Contains(v4candidates, sp.Name) {
 				if err := r.client.Delete(ctx, &sp); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -147,28 +160,33 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	// To ensure that IPBlocks are always correctly recycled, it is necessary
-	// to create an empty IPPool with LabelRefSubnet set before applying IPBlocks.
+	// to create an empty IPPool with LabelRefSubnet set before claiming IPBlocks.
 	if v4sp == nil {
 		var v4sn string
-		for _, s := range v4sa {
+		for _, c := range v4candidates {
 			var ss requeueipv1.SautoSubnet
-			if err := r.client.Get(ctx, types.NamespacedName{Name: s}, &ss); err != nil {
+			if err := r.client.Get(ctx, types.NamespacedName{Name: c}, &ss); err != nil {
 				if apierrors.IsNotFound(err) {
 					// TODO(iiiceoo): Log.
 					continue
 				}
 				return ctrl.Result{}, err
 			}
+			if ss.Status.Count == nil {
+				return ctrl.Result{Requeue: true}, nil
+			}
 
+			// The number of available IP addresses for a Subnet can be very large.
+			// Avoid using strconv.Atoi().
 			fc := new(big.Int)
 			fc.SetString(ss.Status.Count.Free, 10)
 			if fc.Cmp(big.NewInt(int64(scale.Spec.Replicas))) >= 0 {
-				v4sn = s
+				v4sn = c
 				break
 			}
 		}
 		if v4sn == "" {
-			return ctrl.Result{}, fmt.Errorf("no Subnets are available in %s: %w", v4sa, errInsufficientIPBlocks)
+			return ctrl.Result{}, fmt.Errorf("no Subnets are available in %s: %w", v4candidates, errInsufficientIPBlocks)
 		}
 
 		v4sp = &requeueipv1.SautoIPPool{
@@ -190,7 +208,140 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 	}
 
-	// TODO(iiiceoo): Comment scale IPPools.
+	// Do not use .status.count.all as it may not have been set correctly when
+	// IPPool first created.
+	v4ranges, err := iprange.Parse(v4sp.Spec.Ranges...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// A workload must not have more than int replicas. For convenience, convert
+	// IPPool size to int.
+	v4poolSize := int(v4ranges.Size().Int64())
+	replicas := int(scale.Spec.Replicas)
+	if v4poolSize == replicas {
+		return ctrl.Result{}, nil
+	}
+
+	// TODO(iiiceo): IPPool does not have label LabelRefSubnet.
+	var v4ss requeueipv1.SautoSubnet
+	if err := r.client.Get(ctx, types.NamespacedName{Name: v4sp.Labels[consts.LabelRefSubnet]}, &v4ss); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	v4bStep, err := net.CountFromMaskSize(*v4ss.Spec.Version, int(*v4ss.Spec.BlockSize))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	v4step := int(v4bStep.Int64())
+
+	var sbList requeueipv1.SautoIPBlockList
+	if err := r.client.List(
+		ctx,
+		&sbList,
+		client.MatchingLabels{
+			consts.LabelRefNamespace: v4sp.Namespace,
+			consts.LabelRefIPPool:    v4sp.Name,
+		},
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+	v4ipCount := len(sbList.Items) * v4step
+
+	// Scale down IPPools.
+	if replicas < v4poolSize {
+		if v4sp.Status.Count == nil {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		// Wait for the replicas of workload to converge before scaling down IPPool.
+		uc, err := strconv.Atoi(v4sp.Status.Count.Used)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if uc != replicas {
+			// The default DeletionGracePeriodSeconds for Pod is 30 seconds.
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+		v4sp.Spec.Ranges = v4sp.Status.Free
+		if err := r.client.Update(ctx, v4sp); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Normal redundancy, no need to recycle IPBlocks.
+		if v4ipCount-replicas < v4step {
+			return ctrl.Result{}, nil
+		}
+
+		fr, err := iprange.Parse(v4sp.Status.Free...)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// TODO(iiiceoo): Goroutine.
+		for _, sb := range sbList.Items {
+			ipNet, err := net.NameToCIDR(*v4sp.Spec.Version, sb.Name)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			br, err := iprange.Parse(ipNet.String())
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if br.Diff(fr).Size().Sign() > 0 {
+				continue
+			}
+			if err := r.client.Delete(ctx, &sb); err != nil {
+				return ctrl.Result{}, client.IgnoreNotFound(err)
+			}
+		}
+	}
+
+	// Scale up IPPools.
+	if replicas > v4poolSize {
+		if replicas <= v4ipCount {
+			// TODO(iiiceoo): Update IPPool ranges.
+			return ctrl.Result{}, nil
+		}
+
+		if v4ss.Status.Count == nil {
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		dv := replicas - v4ipCount
+		expect := dv / v4step
+		if dv%v4step != 0 {
+			expect++
+		}
+
+		// The number of available IP addresses for a Subnet can be very large.
+		// Avoid using strconv.Atoi().
+		fc := new(big.Int)
+		fc.SetString(v4ss.Status.Count.Free, 10)
+		if fc.Cmp(big.NewInt(int64(expect*v4step))) < 0 {
+			return ctrl.Result{}, fmt.Errorf(
+				"unable to scale up IPPool %s in Subnet %s: %w",
+				v4sp.Name,
+				v4ss.Name,
+				errInsufficientIPBlocks,
+			)
+		}
+		bc := new(big.Int).Div(fc, v4bStep)
+
+		// TODO(iiiceoo): Goroutine.
+		h := fnv.New32a()
+		for i := 1; i <= expect; i++ {
+			id := fmt.Sprintf("%s-%d", v4sp.Name, len(sbList.Items)+i)
+			h.Write([]byte(id))
+			n := new(big.Int).Mod(big.NewInt(int64(h.Sum32())), bc)
+
+			// TODO(iiiceoo): Get n.st IPBlock.
+			fmt.Println(n)
+			h.Reset()
+		}
+
+		// TODO(iiiceoo): Update IPPool ranges.
+	}
 
 	return ctrl.Result{}, nil
 }

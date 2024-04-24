@@ -57,10 +57,7 @@ spec:
             description: SautoSubnetSpec defines the desired state of SautoSubnet.
             properties:
               blockSize:
-                default: 30
                 format: int32
-                maximum: 30
-                minimum: 26
                 type: integer
               cidr:
                 type: string

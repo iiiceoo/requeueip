@@ -29,9 +29,6 @@ type SautoSubnetSpec struct {
 	// +kubebuilder:validation:Required
 	CIDR string `json:"cidr"`
 
-	// +kubebuilder:default=30
-	// +kubebuilder:validation:Maximum=30
-	// +kubebuilder:validation:Minimum=26
 	// +kubebuilder:validation:Optional
 	BlockSize *int32 `json:"blockSize,omitempty"`
 }
