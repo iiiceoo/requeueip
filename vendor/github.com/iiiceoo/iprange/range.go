@@ -18,7 +18,7 @@ type ipRange struct {
 // starting and ending IP addresses. The error errInvalidIPRangeFormat
 // wiil be returned when r is invalid.
 func parse(r string) (*ipRange, error) {
-	if len(r) == 0 {
+	if r == "" {
 		return nil, fmt.Errorf(`%w: ""`, errInvalidIPRangeFormat)
 	}
 
@@ -117,9 +117,9 @@ func (r *ipRange) contains(ip net.IP) bool {
 	}
 }
 
-// equal reports whether ipRange r1 is equal to r2.
-func (r1 *ipRange) equal(r2 *ipRange) bool {
-	return r1.start.Equal(r2.start.IP) && r1.end.Equal(r2.end.IP)
+// equal reports whether ipRange r is equal to r2.
+func (r *ipRange) equal(r2 *ipRange) bool {
+	return r.start.Equal(r2.start.IP) && r.end.Equal(r2.end.IP)
 }
 
 // size calculates the total number of IP addresses that pertain to ipRange r.
@@ -132,9 +132,25 @@ func (r *ipRange) size() *big.Int {
 
 // String implements fmt.Stringer.
 func (r *ipRange) String() string {
-	if r.start.Equal(r.end.IP) {
+	inc := r.size()
+	dv := new(big.Int).Sub(inc, big.NewInt(1))
+	bl := dv.BitLen()
+	if bl == 0 {
 		return r.start.String()
 	}
 
-	return r.start.String() + "-" + r.end.String()
+	if inc.And(inc, dv).Sign() != 0 {
+		return r.start.String() + "-" + r.end.String()
+	}
+
+	bits := 32
+	if r.start.version() == IPv6 {
+		bits = 128
+	}
+	ipNet := &net.IPNet{
+		IP:   r.start.IP,
+		Mask: net.CIDRMask(bits-bl, bits),
+	}
+
+	return ipNet.String()
 }
