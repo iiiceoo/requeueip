@@ -23,7 +23,16 @@ import (
 	"strings"
 )
 
-// CIDRToName converts CIDR to a resource name.
+// CIDRToName converts CIDR string to resource name.
+func CIDRStringToName(s string) string {
+	n := strings.Replace(s, ".", "-", 3)
+	n = strings.Replace(n, ":", "-", 7)
+	n = strings.Replace(n, "/", "-", 1)
+
+	return n
+}
+
+// CIDRToName converts CIDR to resource name.
 func CIDRToName(cidr *net.IPNet) string {
 	n := cidr.String()
 	n = strings.Replace(n, ".", "-", 3)
