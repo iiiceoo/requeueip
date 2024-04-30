@@ -32,69 +32,75 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
-func NewSautoSubnetReconciler(c client.Client) *sautoSubnetReconciler {
-	return &sautoSubnetReconciler{
+func NewSubnetReconciler(c client.Client) *SubnetReconciler {
+	return &SubnetReconciler{
 		client: c,
 	}
 }
 
-type sautoSubnetReconciler struct {
+type SubnetReconciler struct {
 	client client.Client
 }
 
-func (r *sautoSubnetReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SubnetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&requeueipv1.SautoSubnet{}).
-		Watches(&requeueipv1.SautoIPBlock{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSautoSubnet)).
+		For(&requeueipv1.Subnet{}).
+		Watches(&requeueipv1.IPBlock{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSubnet)).
 		Complete(r)
 }
 
-var _ reconcile.Reconciler = &sautoSubnetReconciler{}
+var _ reconcile.Reconciler = &SubnetReconciler{}
 
-func (r *sautoSubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var ss requeueipv1.SautoSubnet
-	if err := r.client.Get(ctx, req.NamespacedName, &ss); err != nil {
+func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var rn requeueipv1.Subnet
+	if err := r.client.Get(ctx, req.NamespacedName, &rn); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var sbList requeueipv1.SautoIPBlockList
-	if err := r.client.List(ctx, &sbList, client.MatchingLabels{consts.LabelRefSubnet: ss.Name}); err != nil {
+	var rbList requeueipv1.IPBlockList
+	if err := r.client.List(ctx, &rbList, client.MatchingLabels{consts.LabelRefSubnet: rn.Name}); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if len(sbList.Items) == 0 && !ss.DeletionTimestamp.IsZero() {
-		controllerutil.RemoveFinalizer(&ss, consts.RFinalizer)
-		return ctrl.Result{}, r.client.Update(ctx, &ss)
+	if len(rbList.Items) == 0 && !rn.DeletionTimestamp.IsZero() {
+		controllerutil.RemoveFinalizer(&rn, consts.RFinalizer)
+		return ctrl.Result{}, r.client.Update(ctx, &rn)
 	}
 
-	blocks := make([]string, 0, len(sbList.Items))
-	for _, sb := range sbList.Items {
-		block, err := net.NameToCIDR(*ss.Spec.Version, sb.Name)
+	blockStrs := make([]string, 0, len(rbList.Items))
+	for i := 0; i < len(rbList.Items); i++ {
+		block, err := net.NameToCIDR(*rn.Spec.Version, rbList.Items[i].Name)
 		if err != nil {
 			// TODO(iiiceoo): Log.
 			continue
 		}
-		blocks = append(blocks, block.String())
+		blockStrs = append(blockStrs, block.String())
 	}
 
-	use, err := iprange.Parse(blocks...)
+	// Calculate the entire, used, and available range of the Subnet.
+	all, err := iprange.Parse(rn.Spec.CIDR)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	all, err := iprange.Parse(ss.Spec.CIDR)
+	used, err := iprange.Parse(blockStrs...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	free := all.DeepCopy().Diff(used)
 
-	free := all.Diff(use).Strings()
-	if reflect.DeepEqual(free, ss.Status.Free) {
+	// Update Subnet status if its current status has changed.
+	status := rn.Status.DeepCopy()
+	if status.Count == nil {
+		status.Count = &requeueipv1.Count{}
+	}
+	status.Count.All = all.Size().String()
+	status.Count.Used = used.Size().String()
+	status.Count.Free = free.Size().String()
+	status.Free = free.Strings()
+	if reflect.DeepEqual(status, rn.Status) {
 		return ctrl.Result{}, nil
 	}
+	rn.Status = *status
 
-	ss.Status.Free = free
-	if err := r.client.Status().Update(ctx, &ss); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.client.Status().Update(ctx, &rn)
 }

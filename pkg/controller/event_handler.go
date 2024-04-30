@@ -26,7 +26,7 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/consts"
 )
 
-var mapFuncForSautoIPPool = func(ctx context.Context, o client.Object) []reconcile.Request {
+var mapFuncForIPPool = func(ctx context.Context, o client.Object) []reconcile.Request {
 	labels := o.GetLabels()
 	if labels == nil {
 		return nil
@@ -43,7 +43,7 @@ var mapFuncForSautoIPPool = func(ctx context.Context, o client.Object) []reconci
 	}}}
 }
 
-var mapFuncForSautoSubnet = func(ctx context.Context, o client.Object) []reconcile.Request {
+var mapFuncForSubnet = func(ctx context.Context, o client.Object) []reconcile.Request {
 	labels := o.GetLabels()
 	if labels == nil {
 		return nil

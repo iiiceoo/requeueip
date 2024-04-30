@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: sautoippools.requeueip.sauto4.io
+  name: ippools.requeueip.io
 spec:
-  group: requeueip.sauto4.io
+  group: requeueip.io
   names:
     categories:
     - requeueip
-    kind: SautoIPPool
-    listKind: SautoIPPoolList
-    plural: sautoippools
+    kind: IPPool
+    listKind: IPPoolList
+    plural: ippools
     shortNames:
-    - sp
-    singular: sautoippool
+    - rp
+    singular: ippool
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -26,7 +26,7 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
-        description: SautoIPPool is the Schema for the SautoIPPools API.
+        description: IPPool is the Schema for the IPPools API.
         properties:
           apiVersion:
             description: |-
@@ -46,7 +46,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: SautoIPPoolSpec defines the desired state of SautoIPPool.
+            description: IPPoolSpec defines the desired state of IPPool.
             properties:
               ranges:
                 items:
@@ -59,7 +59,7 @@ spec:
                 type: string
             type: object
           status:
-            description: SautoIPPoolStatus defines the observed state of SautoIPPool.
+            description: IPPoolStatus defines the observed state of IPPool.
             properties:
               count:
                 properties:

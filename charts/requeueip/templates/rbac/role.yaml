@@ -5,6 +5,18 @@ metadata:
   name: {{ include "requeueip.fullname" . }}-admin
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -13,12 +25,12 @@ rules:
   - get
   - update
 - apiGroups:
-  - requeueip.sauto4.io
+  - requeueip.io
   resources:
-  - sautoipblocks
-  - sautoippools
-  - sautoips
-  - sautosubnets
+  - ipblocks
+  - ippools
+  - ips
+  - subnets
   verbs:
   - create
   - delete
@@ -29,10 +41,10 @@ rules:
   - update
   - watch
 - apiGroups:
-  - requeueip.sauto4.io
+  - requeueip.io
   resources:
-  - sautoippools/status
-  - sautosubnets/status
+  - ippools/status
+  - subnets/status
   verbs:
   - get
   - patch

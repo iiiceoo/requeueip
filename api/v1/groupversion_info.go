@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // +kubebuilder:object:generate=true
-// +groupName=requeueip.sauto4.io
+// +groupName=requeueip.io
 
 // Package v1 contains API Schema definitions for the requeueip v1 API group.
 package v1

@@ -71,8 +71,9 @@ func run(ctx context.Context) error {
 
 	logger.Info("Create controller manager")
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Logger:     logger,
-		Scheme:     scheme,
+		Logger: logger,
+		Scheme: scheme,
+		// TODO(iiiceoo): Customize the quantity of each worker.
 		Controller: runtimeconfig.Controller{MaxConcurrentReconciles: arg.workers},
 		Metrics:    metricsserver.Options{BindAddress: arg.metricsAddr},
 		WebhookServer: webhook.NewServer(webhook.Options{
@@ -88,15 +89,22 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	// Set up SautoIPPool controller.
-	if err := controller.NewSautoIPPoolReconciler(
+	// Set up IPPool controller.
+	if err := controller.NewIPPoolReconciler(
 		mgr.GetClient(),
 	).SetupWithManager(mgr); err != nil {
 		return err
 	}
 
-	// Set up SautoSubnet controller.
-	if err := controller.NewSautoSubnetReconciler(
+	// Set up Subnet controller.
+	if err := controller.NewSubnetReconciler(
+		mgr.GetClient(),
+	).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	// Set up Scale controller.
+	if err := controller.NewScaleReconciler(
 		mgr.GetClient(),
 	).SetupWithManager(mgr); err != nil {
 		return err

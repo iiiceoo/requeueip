@@ -91,7 +91,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if scale.Spec.Replicas == 0 {
 		return ctrl.Result{}, r.client.DeleteAllOf(
 			ctx,
-			&requeueipv1.SautoIPPool{},
+			&requeueipv1.IPPool{},
 			client.MatchingLabels{consts.AnnoWorkloadUID: string(scale.UID)},
 		)
 	}
@@ -138,53 +138,53 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	var spList requeueipv1.SautoIPPoolList
+	var rpList requeueipv1.IPPoolList
 	if err := r.client.List(
 		ctx,
-		&spList,
+		&rpList,
 		client.MatchingLabels{consts.AnnoWorkloadUID: string(scale.UID)},
 	); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	var v4sp *requeueipv1.SautoIPPool
-	for _, sp := range spList.Items {
-		if !sp.DeletionTimestamp.IsZero() {
+	var v4rp *requeueipv1.IPPool
+	for _, rp := range rpList.Items {
+		if !rp.DeletionTimestamp.IsZero() {
 			continue
 		}
-		if *sp.Spec.Version == requeueipnet.IPv4 {
+		if *rp.Spec.Version == requeueipnet.IPv4 {
 			// The workload has changed the Subnets it expects to assign IP addresses to.
-			if !slices.Contains(v4candidates, sp.Name) {
-				if err := r.client.Delete(ctx, &sp); err != nil {
+			if !slices.Contains(v4candidates, rp.Name) {
+				if err := r.client.Delete(ctx, &rp); err != nil {
 					return ctrl.Result{}, err
 				}
 			} else {
-				v4sp = sp.DeepCopy()
+				v4rp = rp.DeepCopy()
 			}
 		}
 	}
 
 	// To ensure that IPBlocks are always correctly recycled, it is necessary
 	// to create an empty IPPool with LabelRefSubnet set before claiming IPBlocks.
-	if v4sp == nil {
+	if v4rp == nil {
 		var v4sn string
 		for _, c := range v4candidates {
-			var ss requeueipv1.SautoSubnet
-			if err := r.client.Get(ctx, types.NamespacedName{Name: c}, &ss); err != nil {
+			var rn requeueipv1.Subnet
+			if err := r.client.Get(ctx, types.NamespacedName{Name: c}, &rn); err != nil {
 				if apierrors.IsNotFound(err) {
 					// TODO(iiiceoo): Log.
 					continue
 				}
 				return ctrl.Result{}, err
 			}
-			if ss.Status.Count == nil {
+			if rn.Status.Count == nil {
 				return ctrl.Result{Requeue: true}, nil
 			}
 
 			// The number of available IP addresses for a Subnet can be very large.
 			// Avoid using strconv.Atoi().
 			fc := new(big.Int)
-			fc.SetString(ss.Status.Count.Free, 10)
+			fc.SetString(rn.Status.Count.Free, 10)
 			if fc.Cmp(big.NewInt(int64(scale.Spec.Replicas))) >= 0 {
 				v4sn = c
 				break
@@ -194,28 +194,28 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, fmt.Errorf("no Subnets are available in %s: %w", v4candidates, errInsufficientIPBlocks)
 		}
 
-		v4sp = &requeueipv1.SautoIPPool{
+		v4rp = &requeueipv1.IPPool{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      scale.Name + "-" + uuid.New().String(),
 				Namespace: scale.Namespace,
 				Labels:    map[string]string{consts.LabelRefSubnet: v4sn},
 			},
-			Spec: requeueipv1.SautoIPPoolSpec{
+			Spec: requeueipv1.IPPoolSpec{
 				Version: ptr.To(requeueipnet.IPv4),
 			},
 		}
-		controllerutil.AddFinalizer(v4sp, consts.RFinalizer)
-		if err := controllerutil.SetControllerReference(&scale, v4sp, r.client.Scheme()); err != nil {
+		controllerutil.AddFinalizer(v4rp, consts.RFinalizer)
+		if err := controllerutil.SetControllerReference(&scale, v4rp, r.client.Scheme()); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.client.Create(ctx, v4sp); err != nil {
+		if err := r.client.Create(ctx, v4rp); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	// Do not use .status.count.all as it may not have been set correctly when
 	// IPPool first created.
-	v4ranges, err := iprange.Parse(v4sp.Spec.Ranges...)
+	v4ranges, err := iprange.Parse(v4rp.Spec.Ranges...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -229,38 +229,38 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	// TODO(iiiceo): IPPool does not have label LabelRefSubnet.
-	var v4ss requeueipv1.SautoSubnet
-	if err := r.client.Get(ctx, types.NamespacedName{Name: v4sp.Labels[consts.LabelRefSubnet]}, &v4ss); err != nil {
+	var v4rn requeueipv1.Subnet
+	if err := r.client.Get(ctx, types.NamespacedName{Name: v4rp.Labels[consts.LabelRefSubnet]}, &v4rn); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	v4bStep, err := requeueipnet.CountFromMaskSize(*v4ss.Spec.Version, int(*v4ss.Spec.BlockSize))
+	v4bStep, err := requeueipnet.CountFromMaskSize(*v4rn.Spec.Version, int(*v4rn.Spec.BlockSize))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	v4step := int(v4bStep.Int64())
 
-	var sbList requeueipv1.SautoIPBlockList
+	var rbList requeueipv1.IPBlockList
 	if err := r.client.List(
 		ctx,
-		&sbList,
+		&rbList,
 		client.MatchingLabels{
-			consts.LabelRefNamespace: v4sp.Namespace,
-			consts.LabelRefIPPool:    v4sp.Name,
+			consts.LabelRefNamespace: v4rp.Namespace,
+			consts.LabelRefIPPool:    v4rp.Name,
 		},
 	); err != nil {
 		return ctrl.Result{}, err
 	}
-	v4ipCount := len(sbList.Items) * v4step
+	v4ipCount := len(rbList.Items) * v4step
 
 	// Scale down IPPools.
 	if replicas < v4poolSize {
-		if v4sp.Status.Count == nil {
+		if v4rp.Status.Count == nil {
 			return ctrl.Result{Requeue: true}, nil
 		}
 
 		// Wait for the replicas of workload to converge before scaling down IPPool.
-		uc, err := strconv.Atoi(v4sp.Status.Count.Used)
+		uc, err := strconv.Atoi(v4rp.Status.Count.Used)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -268,8 +268,8 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			// The default DeletionGracePeriodSeconds for Pod is 30 seconds.
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
-		v4sp.Spec.Ranges = v4sp.Status.Free
-		if err := r.client.Update(ctx, v4sp); err != nil {
+		v4rp.Spec.Ranges = v4rp.Status.Free
+		if err := r.client.Update(ctx, v4rp); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -278,14 +278,14 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, nil
 		}
 
-		fr, err := iprange.Parse(v4sp.Status.Free...)
+		fr, err := iprange.Parse(v4rp.Status.Free...)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 
 		// TODO(iiiceoo): Goroutine.
-		for _, sb := range sbList.Items {
-			ipNet, err := requeueipnet.NameToCIDR(*v4sp.Spec.Version, sb.Name)
+		for _, rb := range rbList.Items {
+			ipNet, err := requeueipnet.NameToCIDR(*v4rp.Spec.Version, rb.Name)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -296,7 +296,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			if br.Diff(fr).Size().Sign() > 0 {
 				continue
 			}
-			if err := r.client.Delete(ctx, &sb); err != nil {
+			if err := r.client.Delete(ctx, &rb); err != nil {
 				return ctrl.Result{}, client.IgnoreNotFound(err)
 			}
 		}
@@ -305,17 +305,17 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// Scale up IPPools.
 	if replicas > v4poolSize {
 		if replicas <= v4ipCount {
-			delta, err := parseIPRangesFromIPBlocks(sbList.Items)
+			delta, err := parseRangesFromBlocks(rbList.Items)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 
 			delta.Diff(v4ranges).Slice(big.NewInt(0), big.NewInt(int64(replicas-v4poolSize)))
-			v4sp.Spec.Ranges = v4ranges.Union(delta).Strings()
-			return ctrl.Result{}, r.client.Update(ctx, v4sp)
+			v4rp.Spec.Ranges = v4ranges.Union(delta).Strings()
+			return ctrl.Result{}, r.client.Update(ctx, v4rp)
 		}
 
-		if v4ss.Status.Count == nil {
+		if v4rn.Status.Count == nil {
 			return ctrl.Result{Requeue: true}, nil
 		}
 
@@ -328,18 +328,18 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		// The number of available IP addresses for a Subnet can be very large.
 		// Avoid using strconv.Atoi().
 		fc := new(big.Int)
-		fc.SetString(v4ss.Status.Count.Free, 10)
+		fc.SetString(v4rn.Status.Count.Free, 10)
 		if fc.Cmp(big.NewInt(int64(expect*v4step))) < 0 {
 			return ctrl.Result{}, fmt.Errorf(
 				"unable to scale up IPPool %s in Subnet %s: %w",
-				v4sp.Name,
-				v4ss.Name,
+				v4rp.Name,
+				v4rn.Name,
 				errInsufficientIPBlocks,
 			)
 		}
 		bc := new(big.Int).Div(fc, v4bStep)
 
-		free, err := iprange.Parse(v4ss.Status.Free...)
+		free, err := iprange.Parse(v4rn.Status.Free...)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -350,30 +350,30 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		h := fnv.New32a()
 		for i := 1; i <= expect; i++ {
 			h.Reset()
-			id := fmt.Sprintf("%s-%s-%d", v4sp.Name, *v4sp.Spec.Version, len(sbList.Items)+i)
+			id := fmt.Sprintf("%s-%s-%d", v4rp.Name, *v4rp.Spec.Version, len(rbList.Items)+i)
 			h.Write([]byte(id))
 			n := new(big.Int).Mod(big.NewInt(int64(h.Sum32())), bc)
 			n.Add(n, big.NewInt(1))
 
 			blockStr := bi.NextN(n).String()
-			sb := &requeueipv1.SautoIPBlock{
+			rb := &requeueipv1.IPBlock{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: requeueipnet.CIDRStringToName(blockStr),
 					Labels: map[string]string{
-						consts.LabelRefNamespace: v4sp.Namespace,
-						consts.LabelRefIPPool:    v4sp.Name,
+						consts.LabelRefNamespace: v4rp.Namespace,
+						consts.LabelRefIPPool:    v4rp.Name,
 					},
 				},
 			}
-			if err := r.client.Create(ctx, sb); err != nil {
+			if err := r.client.Create(ctx, rb); err != nil {
 				if !apierrors.IsAlreadyExists(err) {
 					return ctrl.Result{}, err
 				}
 			}
 
 			blockStr = bi.Next().String()
-			sb.SetName(requeueipnet.CIDRStringToName(blockStr))
-			if err := r.client.Create(ctx, sb); err != nil {
+			rb.SetName(requeueipnet.CIDRStringToName(blockStr))
+			if err := r.client.Create(ctx, rb); err != nil {
 				if !apierrors.IsAlreadyExists(err) {
 					return ctrl.Result{}, err
 				}
@@ -382,19 +382,19 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				complete = false
 				continue
 			}
-			sbList.Items = append(sbList.Items, *sb)
+			rbList.Items = append(rbList.Items, *rb)
 		}
 
 		if !complete {
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		ranges, err := parseIPRangesFromIPBlocks(sbList.Items)
+		ranges, err := parseRangesFromBlocks(rbList.Items)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		v4sp.Spec.Ranges = ranges.Slice(big.NewInt(0), big.NewInt(int64(scale.Spec.Replicas))).Strings()
-		if err := r.client.Update(ctx, v4sp); err != nil {
+		v4rp.Spec.Ranges = ranges.Slice(big.NewInt(0), big.NewInt(int64(scale.Spec.Replicas))).Strings()
+		if err := r.client.Update(ctx, v4rp); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -402,7 +402,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return ctrl.Result{}, nil
 }
 
-func parseIPRangesFromIPBlocks(blocks []requeueipv1.SautoIPBlock) (*iprange.IPRanges, error) {
+func parseRangesFromBlocks(blocks []requeueipv1.IPBlock) (*iprange.IPRanges, error) {
 	blockStrs := make([]string, 0, len(blocks))
 	for i := 0; i < len(blocks); i++ {
 		blockStrs = append(blockStrs, blocks[i].Name)

@@ -17,8 +17,7 @@ limitations under the License.
 package consts
 
 const (
-	sauto4    = "sauto4.io"
-	requeueip = "requeueip" + "." + sauto4
+	requeueip = "requeueip.io"
 )
 
 const (

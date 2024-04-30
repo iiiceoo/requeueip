@@ -4,24 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: sautoips.requeueip.sauto4.io
+  name: ips.requeueip.io
 spec:
-  group: requeueip.sauto4.io
+  group: requeueip.io
   names:
     categories:
     - requeueip
-    kind: SautoIP
-    listKind: SautoIPList
-    plural: sautoips
+    kind: IP
+    listKind: IPList
+    plural: ips
     shortNames:
-    - si
-    singular: sautoip
+    - ri
+    singular: ip
   scope: Namespaced
   versions:
   - name: v1
     schema:
       openAPIV3Schema:
-        description: SautoIP is the Schema for the SautoIPs API.
+        description: IP is the Schema for the IPs API.
         properties:
           apiVersion:
             description: |-
@@ -39,9 +39,6 @@ spec:
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
-            type: object
-          status:
-            description: SautoIPStatus defines the observed state of SautoIP.
             type: object
         type: object
     served: true

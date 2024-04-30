@@ -20,8 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SautoSubnetSpec defines the desired state of SautoSubnet.
-type SautoSubnetSpec struct {
+// SubnetSpec defines the desired state of Subnet.
+type SubnetSpec struct {
 	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Optional
 	Version *string `json:"version,omitempty"`
@@ -33,8 +33,8 @@ type SautoSubnetSpec struct {
 	BlockSize *int32 `json:"blockSize,omitempty"`
 }
 
-// SautoSubnetStatus defines the observed state of SautoSubnet.
-type SautoSubnetStatus struct {
+// SubnetStatus defines the observed state of Subnet.
+type SubnetStatus struct {
 	// +kubebuilder:validation:Optional
 	Count *Count `json:"count,omitempty"`
 
@@ -42,31 +42,31 @@ type SautoSubnetStatus struct {
 	Free []string `json:"free,omitempty"`
 }
 
-// +kubebuilder:resource:categories={requeueip},path="sautosubnets",scope="Cluster",shortName={ss},singular="sautosubnet"
+// +kubebuilder:resource:categories={requeueip},path="subnets",scope="Cluster",shortName={rn},singular="subnet"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.cidr",description="cidr",name="CIDR",type=string
-// +kubebuilder:printcolumn:JSONPath=".spec.blockSize",description="blockSize",name="BLOCK-SIZE",type=int
+// +kubebuilder:printcolumn:JSONPath=".spec.blockSize",description="blockSize",name="BLOCK-SIZE",type=integer
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// SautoSubnet is the Schema for the SautoSubnets API.
-type SautoSubnet struct {
+// Subnet is the Schema for the Subnets API.
+type Subnet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SautoSubnetSpec   `json:"spec,omitempty"`
-	Status SautoSubnetStatus `json:"status,omitempty"`
+	Spec   SubnetSpec   `json:"spec,omitempty"`
+	Status SubnetStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// SautoSubnetList contains a list of SautoSubnet.
-type SautoSubnetList struct {
+// SubnetList contains a list of Subnet.
+type SubnetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SautoSubnet `json:"items"`
+	Items           []Subnet `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&SautoSubnet{}, &SautoSubnetList{})
+	SchemeBuilder.Register(&Subnet{}, &SubnetList{})
 }

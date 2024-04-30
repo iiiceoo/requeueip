@@ -14,7 +14,7 @@
 
 DOCKER := docker
 
-REGISTRY_PREFIX ?= ghcr.io/sauto4/requeueip
+REGISTRY_PREFIX ?= ghcr.io/requeueip
 BUILDER_IMAGE ?= golang:$(GO_VERSION)
 BASE_IMAGE ?= gcr.io/distroless/static:nonroot
 

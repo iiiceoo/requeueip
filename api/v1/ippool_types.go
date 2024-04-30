@@ -20,8 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SautoIPPoolSpec defines the desired state of SautoIPPool.
-type SautoIPPoolSpec struct {
+// IPPoolSpec defines the desired state of IPPool.
+type IPPoolSpec struct {
 	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Optional
 	Version *string `json:"version,omitempty"`
@@ -30,8 +30,8 @@ type SautoIPPoolSpec struct {
 	Ranges []string `json:"ranges,omitempty"`
 }
 
-// SautoIPPoolStatus defines the observed state of SautoIPPool.
-type SautoIPPoolStatus struct {
+// IPPoolStatus defines the observed state of IPPool.
+type IPPoolStatus struct {
 	// +kubebuilder:validation:Optional
 	Count *Count `json:"count,omitempty"`
 
@@ -39,29 +39,29 @@ type SautoIPPoolStatus struct {
 	Free []string `json:"free,omitempty"`
 }
 
-// +kubebuilder:resource:categories={requeueip},path="sautoippools",scope="Namespaced",shortName={sp},singular="sautoippool"
+// +kubebuilder:resource:categories={requeueip},path="ippools",scope="Namespaced",shortName={rp},singular="ippool"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// SautoIPPool is the Schema for the SautoIPPools API.
-type SautoIPPool struct {
+// IPPool is the Schema for the IPPools API.
+type IPPool struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SautoIPPoolSpec   `json:"spec,omitempty"`
-	Status SautoIPPoolStatus `json:"status,omitempty"`
+	Spec   IPPoolSpec   `json:"spec,omitempty"`
+	Status IPPoolStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// SautoIPPoolList contains a list of SautoIPPool.
-type SautoIPPoolList struct {
+// IPPoolList contains a list of IPPool.
+type IPPoolList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SautoIPPool `json:"items"`
+	Items           []IPPool `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&SautoIPPool{}, &SautoIPPoolList{})
+	SchemeBuilder.Register(&IPPool{}, &IPPoolList{})
 }

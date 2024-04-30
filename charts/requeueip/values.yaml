@@ -8,7 +8,7 @@ clusterDomain: cluster.local
 controller:
   replicas: 1
   image:
-    registry: ghcr.io/sauto4/requeueip
+    registry: ghcr.io/requeueip
     repository: requeueip-controller
     tag: ""
     pullPolicy: IfNotPresent

@@ -32,82 +32,88 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
-func NewSautoIPPoolReconciler(c client.Client) *sautoIPPoolReconciler {
-	return &sautoIPPoolReconciler{
+func NewIPPoolReconciler(c client.Client) *IPPoolReconciler {
+	return &IPPoolReconciler{
 		client: c,
 	}
 }
 
-type sautoIPPoolReconciler struct {
+type IPPoolReconciler struct {
 	client client.Client
 }
 
-func (r *sautoIPPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *IPPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&requeueipv1.SautoIPPool{}).
-		Watches(&requeueipv1.SautoIP{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSautoIPPool)).
+		For(&requeueipv1.IPPool{}).
+		Watches(&requeueipv1.IP{}, handler.EnqueueRequestsFromMapFunc(mapFuncForIPPool)).
 		Complete(r)
 }
 
-var _ reconcile.Reconciler = &sautoIPPoolReconciler{}
+var _ reconcile.Reconciler = &IPPoolReconciler{}
 
-func (r *sautoIPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var sp requeueipv1.SautoIPPool
-	if err := r.client.Get(ctx, req.NamespacedName, &sp); err != nil {
+func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var rp requeueipv1.IPPool
+	if err := r.client.Get(ctx, req.NamespacedName, &rp); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var siList requeueipv1.SautoIPList
-	if err := r.client.List(ctx, &siList, client.MatchingLabels{consts.LabelRefIPPool: sp.Name}); err != nil {
+	var riList requeueipv1.IPList
+	if err := r.client.List(ctx, &riList, client.MatchingLabels{consts.LabelRefIPPool: rp.Name}); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if len(siList.Items) == 0 && !sp.DeletionTimestamp.IsZero() {
+	if len(riList.Items) == 0 && !rp.DeletionTimestamp.IsZero() {
 		// TODO(iiiceoo): Owner terminating or no longer exists.
 		// r.client.Get(owner ns/name, unstructed)?
 		if err := r.client.DeleteAllOf(
 			ctx,
-			&requeueipv1.SautoIPBlock{},
+			&requeueipv1.IPBlock{},
 			client.MatchingLabels{
-				consts.LabelRefNamespace: sp.Namespace,
-				consts.LabelRefIPPool:    sp.Name,
+				consts.LabelRefNamespace: rp.Namespace,
+				consts.LabelRefIPPool:    rp.Name,
 			},
 		); err != nil {
 			return ctrl.Result{}, err
 		}
 
-		controllerutil.RemoveFinalizer(&sp, consts.RFinalizer)
-		return ctrl.Result{}, r.client.Update(ctx, &sp)
+		controllerutil.RemoveFinalizer(&rp, consts.RFinalizer)
+		return ctrl.Result{}, r.client.Update(ctx, &rp)
 	}
 
-	ips := make([]string, 0, len(siList.Items))
-	for _, si := range siList.Items {
-		ip, err := net.NameToIP(*sp.Spec.Version, si.Name)
+	ipStrs := make([]string, 0, len(riList.Items))
+	for i := 0; i < len(riList.Items); i++ {
+		ip, err := net.NameToIP(*rp.Spec.Version, riList.Items[i].Name)
 		if err != nil {
 			// TODO(iiiceoo): Log.
 			continue
 		}
-		ips = append(ips, ip.String())
+		ipStrs = append(ipStrs, ip.String())
 	}
 
-	use, err := iprange.Parse(ips...)
+	// Calculate the entire, used, and available range of the IPPool.
+	all, err := iprange.Parse(rp.Spec.Ranges...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	all, err := iprange.Parse(sp.Spec.Ranges...)
+	used, err := iprange.Parse(ipStrs...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	free := all.DeepCopy().Diff(used)
 
-	free := all.Diff(use).Strings()
-	if reflect.DeepEqual(free, sp.Status.Free) {
+	// Update IPPool status if its current status has changed.
+	status := rp.Status.DeepCopy()
+	if status.Count == nil {
+		status.Count = &requeueipv1.Count{}
+	}
+	status.Count.All = all.Size().String()
+	status.Count.Used = used.Size().String()
+	status.Count.Free = free.Size().String()
+	status.Free = free.Strings()
+	if reflect.DeepEqual(status, rp.Status) {
 		return ctrl.Result{}, nil
 	}
+	rp.Status = *status
 
-	sp.Status.Free = free
-	if err := r.client.Status().Update(ctx, &sp); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.client.Status().Update(ctx, &rp)
 }

@@ -13,7 +13,7 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | clusterDomain | string | `"cluster.local"` |  |
 | controller.config | object | `{}` |  |
 | controller.image.pullPolicy | string | `"IfNotPresent"` |  |
-| controller.image.registry | string | `"ghcr.io/sauto4/requeueip"` |  |
+| controller.image.registry | string | `"ghcr.io/requeueip"` |  |
 | controller.image.repository | string | `"requeueip-controller"` |  |
 | controller.image.tag | string | `""` |  |
 | controller.imagePullSecrets | list | `[]` |  |

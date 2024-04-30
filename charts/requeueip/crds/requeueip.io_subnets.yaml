@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: sautosubnets.requeueip.sauto4.io
+  name: subnets.requeueip.io
 spec:
-  group: requeueip.sauto4.io
+  group: requeueip.io
   names:
     categories:
     - requeueip
-    kind: SautoSubnet
-    listKind: SautoSubnetList
-    plural: sautosubnets
+    kind: Subnet
+    listKind: SubnetList
+    plural: subnets
     shortNames:
-    - ss
-    singular: sautosubnet
+    - rn
+    singular: subnet
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -30,11 +30,11 @@ spec:
     - description: blockSize
       jsonPath: .spec.blockSize
       name: BLOCK-SIZE
-      type: int
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
-        description: SautoSubnet is the Schema for the SautoSubnets API.
+        description: Subnet is the Schema for the Subnets API.
         properties:
           apiVersion:
             description: |-
@@ -54,7 +54,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: SautoSubnetSpec defines the desired state of SautoSubnet.
+            description: SubnetSpec defines the desired state of Subnet.
             properties:
               blockSize:
                 format: int32
@@ -70,7 +70,7 @@ spec:
             - cidr
             type: object
           status:
-            description: SautoSubnetStatus defines the observed state of SautoSubnet.
+            description: SubnetStatus defines the observed state of Subnet.
             properties:
               count:
                 properties:
