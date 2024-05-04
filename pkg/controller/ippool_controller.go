@@ -64,7 +64,6 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	if len(riList.Items) == 0 && !rp.DeletionTimestamp.IsZero() {
 		// TODO(iiiceoo): Owner terminating or no longer exists.
-		// r.client.Get(owner ns/name, unstructed)?
 		if err := r.client.DeleteAllOf(
 			ctx,
 			&requeueipv1.IPBlock{},
@@ -82,7 +81,7 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	ipStrs := make([]string, 0, len(riList.Items))
 	for i := 0; i < len(riList.Items); i++ {
-		ip, err := net.NameToIP(*rp.Spec.Version, riList.Items[i].Name)
+		ip, err := net.NameToIP(rp.Spec.Version, riList.Items[i].Name)
 		if err != nil {
 			// TODO(iiiceoo): Log.
 			continue

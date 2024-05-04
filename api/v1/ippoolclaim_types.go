@@ -20,48 +20,44 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// IPPoolSpec defines the desired state of IPPool.
-type IPPoolSpec struct {
+// IPPoolClaimSpec defines the desired state of IPPoolClaim.
+type IPPoolClaimSpec struct {
 	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Required
 	Version string `json:"version"`
 
+	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
-	Ranges []string `json:"ranges"`
+	Subnets []string `json:"subnets"`
+
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Required
+	Replicas int32 `json:"replicas"`
 }
 
-// IPPoolStatus defines the observed state of IPPool.
-type IPPoolStatus struct {
-	// +kubebuilder:validation:Optional
-	Count *Count `json:"count,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	Free []string `json:"free,omitempty"`
-}
-
-// +kubebuilder:resource:categories={requeueip},path="ippools",scope="Namespaced",shortName={rp},singular="ippool"
+// +kubebuilder:resource:categories={requeueip},path="ippoolclaims",scope="Namespaced",shortName={rpc},singular="ippoolclaim"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.subnet",description="subnet",name="SUBNET",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.replicas",description="replicas",name="REPLICAS",type=integer
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
 
-// IPPool is the Schema for the IPPools API.
-type IPPool struct {
+// IPPoolClaim is the Schema for the IPPoolClaims API.
+type IPPoolClaim struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   IPPoolSpec   `json:"spec,omitempty"`
-	Status IPPoolStatus `json:"status,omitempty"`
+	Spec IPPoolClaimSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// IPPoolList contains a list of IPPool.
-type IPPoolList struct {
+// IPPoolClaimList contains a list of IPPoolClaim.
+type IPPoolClaimList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IPPool `json:"items"`
+	Items           []IPPoolClaim `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&IPPool{}, &IPPoolList{})
+	SchemeBuilder.Register(&IPPoolClaim{}, &IPPoolClaimList{})
 }

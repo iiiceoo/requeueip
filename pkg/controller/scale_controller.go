@@ -33,7 +33,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -92,7 +91,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, r.client.DeleteAllOf(
 			ctx,
 			&requeueipv1.IPPool{},
-			client.MatchingLabels{consts.AnnoWorkloadUID: string(scale.UID)},
+			client.MatchingLabels{consts.LabelWorkloadUID: string(scale.UID)},
 		)
 	}
 
@@ -142,7 +141,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err := r.client.List(
 		ctx,
 		&rpList,
-		client.MatchingLabels{consts.AnnoWorkloadUID: string(scale.UID)},
+		client.MatchingLabels{consts.LabelWorkloadUID: string(scale.UID)},
 	); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -152,7 +151,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		if !rp.DeletionTimestamp.IsZero() {
 			continue
 		}
-		if *rp.Spec.Version == requeueipnet.IPv4 {
+		if rp.Spec.Version == requeueipnet.IPv4 {
 			// The workload has changed the Subnets it expects to assign IP addresses to.
 			if !slices.Contains(v4candidates, rp.Name) {
 				if err := r.client.Delete(ctx, &rp); err != nil {
@@ -201,7 +200,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				Labels:    map[string]string{consts.LabelRefSubnet: v4sn},
 			},
 			Spec: requeueipv1.IPPoolSpec{
-				Version: ptr.To(requeueipnet.IPv4),
+				Version: requeueipnet.IPv4,
 			},
 		}
 		controllerutil.AddFinalizer(v4rp, consts.RFinalizer)
@@ -285,7 +284,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		// TODO(iiiceoo): Goroutine.
 		for _, rb := range rbList.Items {
-			ipNet, err := requeueipnet.NameToCIDR(*v4rp.Spec.Version, rb.Name)
+			ipNet, err := requeueipnet.NameToCIDR(v4rp.Spec.Version, rb.Name)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -350,7 +349,7 @@ func (r *scaleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		h := fnv.New32a()
 		for i := 1; i <= expect; i++ {
 			h.Reset()
-			id := fmt.Sprintf("%s-%s-%d", v4rp.Name, *v4rp.Spec.Version, len(rbList.Items)+i)
+			id := fmt.Sprintf("%s-%s-%d", v4rp.Name, v4rp.Spec.Version, len(rbList.Items)+i)
 			h.Write([]byte(id))
 			n := new(big.Int).Mod(big.NewInt(int64(h.Sum32())), bc)
 			n.Add(n, big.NewInt(1))

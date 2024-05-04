@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: ippools.requeueip.io
+  name: ippoolclaims.requeueip.io
 spec:
   group: requeueip.io
   names:
     categories:
     - requeueip
-    kind: IPPool
-    listKind: IPPoolList
-    plural: ippools
+    kind: IPPoolClaim
+    listKind: IPPoolClaimList
+    plural: ippoolclaims
     shortNames:
-    - rp
-    singular: ippool
+    - rpc
+    singular: ippoolclaim
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -23,10 +23,18 @@ spec:
       jsonPath: .spec.version
       name: VERSION
       type: string
+    - description: subnet
+      jsonPath: .spec.subnet
+      name: SUBNET
+      type: string
+    - description: replicas
+      jsonPath: .spec.replicas
+      name: REPLICAS
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
-        description: IPPool is the Schema for the IPPools API.
+        description: IPPoolClaim is the Schema for the IPPoolClaims API.
         properties:
           apiVersion:
             description: |-
@@ -46,11 +54,16 @@ spec:
           metadata:
             type: object
           spec:
-            description: IPPoolSpec defines the desired state of IPPool.
+            description: IPPoolClaimSpec defines the desired state of IPPoolClaim.
             properties:
-              ranges:
+              replicas:
+                format: int32
+                minimum: 0
+                type: integer
+              subnets:
                 items:
                   type: string
+                minItems: 1
                 type: array
               version:
                 enum:
@@ -58,32 +71,11 @@ spec:
                 - IPv6
                 type: string
             required:
-            - ranges
+            - replicas
+            - subnets
             - version
-            type: object
-          status:
-            description: IPPoolStatus defines the observed state of IPPool.
-            properties:
-              count:
-                properties:
-                  all:
-                    type: string
-                  free:
-                    type: string
-                  used:
-                    type: string
-                required:
-                - all
-                - free
-                - used
-                type: object
-              free:
-                items:
-                  type: string
-                type: array
             type: object
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}
+    subresources: {}
