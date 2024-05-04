@@ -23,14 +23,14 @@ spec:
       jsonPath: .spec.version
       name: VERSION
       type: string
-    - description: subnet
-      jsonPath: .spec.subnet
-      name: SUBNET
-      type: string
     - description: replicas
       jsonPath: .spec.replicas
       name: REPLICAS
       type: integer
+    - description: The age of IPPoolClaim
+      jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
     name: v1
     schema:
       openAPIV3Schema:

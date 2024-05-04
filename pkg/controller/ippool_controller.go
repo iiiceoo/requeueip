@@ -29,7 +29,6 @@ import (
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
-	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
 func NewIPPoolReconciler(c client.Client) *IPPoolReconciler {
@@ -63,7 +62,7 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if len(riList.Items) == 0 && !rp.DeletionTimestamp.IsZero() {
-		// TODO(iiiceoo): Owner terminating or no longer exists.
+		// TODO(iiiceoo): Owner terminating or no longer exists. or subnets change.
 		if err := r.client.DeleteAllOf(
 			ctx,
 			&requeueipv1.IPBlock{},
@@ -79,33 +78,23 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, r.client.Update(ctx, &rp)
 	}
 
-	ipStrs := make([]string, 0, len(riList.Items))
-	for i := 0; i < len(riList.Items); i++ {
-		ip, err := net.NameToIP(rp.Spec.Version, riList.Items[i].Name)
-		if err != nil {
-			// TODO(iiiceoo): Log.
-			continue
-		}
-		ipStrs = append(ipStrs, ip.String())
-	}
-
-	// Calculate the entire, used, and available range of the IPPool.
-	all, err := iprange.Parse(rp.Spec.Ranges...)
+	// Calculate the total, used, and available range of the IPPool.
+	total, err := iprange.Parse(rp.Spec.Ranges...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	used, err := iprange.Parse(ipStrs...)
+	used, err := parseRangesFromIPs(rp.Spec.Version, riList.Items)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	free := all.DeepCopy().Diff(used)
+	free := total.DeepCopy().Diff(used)
 
 	// Update IPPool status if its current status has changed.
 	status := rp.Status.DeepCopy()
 	if status.Count == nil {
 		status.Count = &requeueipv1.Count{}
 	}
-	status.Count.All = all.Size().String()
+	status.Count.Total = total.Size().String()
 	status.Count.Used = used.Size().String()
 	status.Count.Free = free.Size().String()
 	status.Free = free.Strings()

@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:rbac:groups=requeueip.io,resources=subnets;ipblocks;ippools;ips,verbs=get;list;watch;create;update;patch;delete;deletecollection
+// +kubebuilder:rbac:groups=requeueip.io,resources=subnets;ipblocks;ippoolclaims;ippools;ips,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=requeueip.io,resources=subnets/status;ippools/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=apps,resources=deployments;statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=create;get;update
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;create;update
 
 package v1

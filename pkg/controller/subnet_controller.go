@@ -29,7 +29,6 @@ import (
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
-	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
 func NewSubnetReconciler(c client.Client) *SubnetReconciler {
@@ -67,33 +66,23 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, r.client.Update(ctx, &rn)
 	}
 
-	blockStrs := make([]string, 0, len(rbList.Items))
-	for i := 0; i < len(rbList.Items); i++ {
-		block, err := net.NameToCIDR(*rn.Spec.Version, rbList.Items[i].Name)
-		if err != nil {
-			// TODO(iiiceoo): Log.
-			continue
-		}
-		blockStrs = append(blockStrs, block.String())
-	}
-
-	// Calculate the entire, used, and available range of the Subnet.
-	all, err := iprange.Parse(rn.Spec.CIDR)
+	// Calculate the total, used, and available range of the Subnet.
+	total, err := iprange.Parse(rn.Spec.CIDR)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	used, err := iprange.Parse(blockStrs...)
+	used, err := parseRangesFromBlocks(*rn.Spec.Version, rbList.Items)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	free := all.DeepCopy().Diff(used)
+	free := total.DeepCopy().Diff(used)
 
 	// Update Subnet status if its current status has changed.
 	status := rn.Status.DeepCopy()
 	if status.Count == nil {
 		status.Count = &requeueipv1.Count{}
 	}
-	status.Count.All = all.Size().String()
+	status.Count.Total = total.Size().String()
 	status.Count.Used = used.Size().String()
 	status.Count.Free = free.Size().String()
 	status.Free = free.Strings()

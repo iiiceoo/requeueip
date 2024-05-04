@@ -46,6 +46,9 @@ type SubnetStatus struct {
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.cidr",description="cidr",name="CIDR",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.blockSize",description="blockSize",name="BLOCK-SIZE",type=integer
+// +kubebuilder:printcolumn:JSONPath=".status.count.used",description="used",name="USED",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.count.total",description="total",name="TOTAL",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of Subnet",name="AGE",type=date
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 

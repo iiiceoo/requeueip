@@ -18,7 +18,7 @@ package v1
 
 type Count struct {
 	// +kubebuilder:validation:Required
-	All string `json:"all"`
+	Total string `json:"total"`
 
 	// +kubebuilder:validation:Required
 	Used string `json:"used"`

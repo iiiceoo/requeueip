@@ -18,6 +18,8 @@ package workload
 
 import (
 	"context"
+	"fmt"
+	"hash/fnv"
 	"reflect"
 	"strings"
 
@@ -25,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -94,7 +97,7 @@ func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolCla
 	if len(rpcList.Items) == 0 {
 		rpc := &requeueipv1.IPPoolClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      object.GetName() + "-" + uuid.New().String(),
+				Name:      attachHash(object.GetName()),
 				Namespace: object.GetNamespace(),
 				Labels:    labels,
 			},
@@ -113,6 +116,14 @@ func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolCla
 	rpcList.Items[0].Spec = *spec
 
 	return c.client.Update(ctx, &rpcList.Items[0])
+}
+
+func attachHash(name string) string {
+	h := fnv.New32a()
+	h.Write([]byte(uuid.NewString()))
+	hash := rand.SafeEncodeString(fmt.Sprint(h.Sum32()))
+
+	return name + "-" + hash
 }
 
 func parseArray(arrStr string) []string {

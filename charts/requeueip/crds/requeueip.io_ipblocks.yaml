@@ -18,7 +18,12 @@ spec:
     singular: ipblock
   scope: Cluster
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The age of IPBlock
+      jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: IPBlock is the Schema for the IPBlocks API.
@@ -43,3 +48,4 @@ spec:
         type: object
     served: true
     storage: true
+    subresources: {}

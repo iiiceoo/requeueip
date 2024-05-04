@@ -21,6 +21,7 @@ import (
 )
 
 // +kubebuilder:resource:categories={requeueip},path="ipblocks",scope="Cluster",shortName={rb},singular="ipblock"
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPBlock",name="AGE",type=date
 // +kubebuilder:object:root=true
 
 // IPBlock is the Schema for the IPBlocks API.

@@ -37,8 +37,8 @@ type IPPoolClaimSpec struct {
 
 // +kubebuilder:resource:categories={requeueip},path="ippoolclaims",scope="Namespaced",shortName={rpc},singular="ippoolclaim"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
-// +kubebuilder:printcolumn:JSONPath=".spec.subnet",description="subnet",name="SUBNET",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.replicas",description="replicas",name="REPLICAS",type=integer
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPoolClaim",name="AGE",type=date
 // +kubebuilder:object:root=true
 
 // IPPoolClaim is the Schema for the IPPoolClaims API.

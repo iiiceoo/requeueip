@@ -23,6 +23,18 @@ spec:
       jsonPath: .spec.version
       name: VERSION
       type: string
+    - description: used
+      jsonPath: .status.count.used
+      name: USED
+      type: string
+    - description: total
+      jsonPath: .status.count.total
+      name: TOTAL
+      type: string
+    - description: The age of IPPool
+      jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
     name: v1
     schema:
       openAPIV3Schema:
@@ -66,15 +78,15 @@ spec:
             properties:
               count:
                 properties:
-                  all:
-                    type: string
                   free:
+                    type: string
+                  total:
                     type: string
                   used:
                     type: string
                 required:
-                - all
                 - free
+                - total
                 - used
                 type: object
               free:

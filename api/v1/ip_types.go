@@ -21,6 +21,7 @@ import (
 )
 
 // +kubebuilder:resource:categories={requeueip},path="ips",scope="Namespaced",shortName={ri},singular="ip"
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IP",name="AGE",type=date
 // +kubebuilder:object:root=true
 
 // IP is the Schema for the IPs API.

@@ -41,6 +41,9 @@ type IPPoolStatus struct {
 
 // +kubebuilder:resource:categories={requeueip},path="ippools",scope="Namespaced",shortName={rp},singular="ippool"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.count.used",description="used",name="USED",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.count.total",description="total",name="TOTAL",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPool",name="AGE",type=date
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 

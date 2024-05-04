@@ -18,7 +18,12 @@ spec:
     singular: ip
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The age of IP
+      jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: IP is the Schema for the IPs API.
@@ -43,3 +48,4 @@ spec:
         type: object
     served: true
     storage: true
+    subresources: {}
