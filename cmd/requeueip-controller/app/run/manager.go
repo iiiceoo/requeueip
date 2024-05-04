@@ -34,6 +34,7 @@ import (
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
 	"github.com/iiiceoo/requeueip/pkg/controller"
+	"github.com/iiiceoo/requeueip/pkg/controller/workload"
 )
 
 var scheme = runtime.NewScheme()
@@ -103,8 +104,15 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	// Set up Scale controller.
+	// Set up IPPoolClaim controller.
 	if err := controller.NewScaleReconciler(
+		mgr.GetClient(),
+	).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	// Set up workload controllers.
+	if err := workload.NewWorkloadReconciler(
 		mgr.GetClient(),
 	).SetupWithManager(mgr); err != nil {
 		return err
