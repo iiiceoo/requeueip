@@ -56,13 +56,7 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var riList requeueipv1.IPList
-	if err := r.client.List(ctx, &riList, client.MatchingLabels{consts.LabelRefIPPool: rp.Name}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if len(riList.Items) == 0 && !rp.DeletionTimestamp.IsZero() {
-		// TODO(iiiceoo): Owner terminating or no longer exists. or subnets change.
+	if !rp.DeletionTimestamp.IsZero() {
 		if err := r.client.DeleteAllOf(
 			ctx,
 			&requeueipv1.IPBlock{},
@@ -76,6 +70,11 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 		controllerutil.RemoveFinalizer(&rp, consts.RFinalizer)
 		return ctrl.Result{}, r.client.Update(ctx, &rp)
+	}
+
+	var riList requeueipv1.IPList
+	if err := r.client.List(ctx, &riList, client.MatchingLabels{consts.LabelRefIPPool: rp.Name}); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// Calculate the total, used, and available range of the IPPool.

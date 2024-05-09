@@ -56,15 +56,19 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var rbList requeueipv1.IPBlockList
-	if err := r.client.List(ctx, &rbList, client.MatchingLabels{consts.LabelRefSubnet: rn.Name}); err != nil {
+	var rpList requeueipv1.IPPoolList
+	if err := r.client.List(ctx, &rpList, client.MatchingLabels{consts.LabelRefSubnet: rn.Name}); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// TODO(iiiceoo): len(IPPool list) == 0.
-	if len(rbList.Items) == 0 && !rn.DeletionTimestamp.IsZero() {
+	if len(rpList.Items) == 0 && !rn.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(&rn, consts.RFinalizer)
 		return ctrl.Result{}, r.client.Update(ctx, &rn)
+	}
+
+	var rbList requeueipv1.IPBlockList
+	if err := r.client.List(ctx, &rbList, client.MatchingLabels{consts.LabelRefSubnet: rn.Name}); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// Calculate the total, used, and available range of the Subnet.
