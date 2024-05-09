@@ -10,7 +10,7 @@ require (
 	github.com/iiiceoo/iprange v0.2.0
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/spf13/cobra v1.8.0
-	go.uber.org/zap v1.26.0
+	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.5.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.29.3
