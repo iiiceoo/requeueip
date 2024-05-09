@@ -17,10 +17,17 @@ limitations under the License.
 package controller
 
 import (
+	"math/big"
+
 	"github.com/iiiceoo/iprange"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/net"
+)
+
+var (
+	zero = big.NewInt(0)
+	one  = big.NewInt(1)
 )
 
 func parseRangesFromIPs(version string, ips []requeueipv1.IP) (*iprange.IPRanges, error) {
@@ -36,7 +43,7 @@ func parseRangesFromIPs(version string, ips []requeueipv1.IP) (*iprange.IPRanges
 	return iprange.Parse(ipStrs...)
 }
 
-func parseRangesFromBlocks(version string, blocks []requeueipv1.IPBlock) (*iprange.IPRanges, error) {
+func parseRangesFromIPBlocks(version string, blocks []requeueipv1.IPBlock) (*iprange.IPRanges, error) {
 	blockStrs := make([]string, 0, len(blocks))
 	for i := 0; i < len(blocks); i++ {
 		ipNet, err := net.NameToCIDR(version, blocks[i].Name)

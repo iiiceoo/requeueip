@@ -61,6 +61,7 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// TODO(iiiceoo): len(IPPool list) == 0.
 	if len(rbList.Items) == 0 && !rn.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(&rn, consts.RFinalizer)
 		return ctrl.Result{}, r.client.Update(ctx, &rn)
@@ -71,7 +72,7 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	used, err := parseRangesFromBlocks(*rn.Spec.Version, rbList.Items)
+	used, err := parseRangesFromIPBlocks(*rn.Spec.Version, rbList.Items)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

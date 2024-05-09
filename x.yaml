@@ -1,8 +1,0 @@
-apiVersion: requeueip.io/v1
-kind: Subnet
-metadata:
-  name: test-ipv4-subnet
-spec:
-  version: IPv4
-  cidr: 172.18.0.0/28
-  blockSize: 30

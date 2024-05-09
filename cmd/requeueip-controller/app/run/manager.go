@@ -107,6 +107,7 @@ func run(ctx context.Context) error {
 	// Set up IPPoolClaim controller.
 	if err := controller.NewIPPoolClaimReconciler(
 		mgr.GetClient(),
+		mgr.GetAPIReader(),
 	).SetupWithManager(mgr); err != nil {
 		return err
 	}
