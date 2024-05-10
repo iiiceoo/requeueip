@@ -101,6 +101,8 @@ spec:
                 items:
                   type: string
                 type: array
+            required:
+            - free
             type: object
         type: object
     served: true

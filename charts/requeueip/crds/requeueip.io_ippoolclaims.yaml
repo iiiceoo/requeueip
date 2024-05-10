@@ -23,6 +23,10 @@ spec:
       jsonPath: .spec.version
       name: VERSION
       type: string
+    - description: workload
+      jsonPath: .metadata.ownerReferences[0].kind
+      name: WORKLOAD
+      type: string
     - description: replicas
       jsonPath: .spec.replicas
       name: REPLICAS

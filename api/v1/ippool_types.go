@@ -27,6 +27,9 @@ type IPPoolSpec struct {
 	Version string `json:"version"`
 
 	// +kubebuilder:validation:Required
+	Subnet string `json:"string"`
+
+	// +kubebuilder:validation:Required
 	Ranges []string `json:"ranges"`
 }
 
@@ -35,12 +38,13 @@ type IPPoolStatus struct {
 	// +kubebuilder:validation:Optional
 	Count *Count `json:"count,omitempty"`
 
-	// +kubebuilder:validation:Optional
-	Free []string `json:"free,omitempty"`
+	// +kubebuilder:validation:Required
+	Free []string `json:"free"`
 }
 
 // +kubebuilder:resource:categories={requeueip},path="ippools",scope="Namespaced",shortName={rp},singular="ippool"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.subnet",description="subnet",name="SUBNET",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.count.used",description="used",name="USED",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.count.total",description="total",name="TOTAL",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPool",name="AGE",type=date

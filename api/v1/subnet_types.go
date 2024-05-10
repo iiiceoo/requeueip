@@ -38,8 +38,8 @@ type SubnetStatus struct {
 	// +kubebuilder:validation:Optional
 	Count *Count `json:"count,omitempty"`
 
-	// +kubebuilder:validation:Optional
-	Free []string `json:"free,omitempty"`
+	// +kubebuilder:validation:Required
+	Free []string `json:"free"`
 }
 
 // +kubebuilder:resource:categories={requeueip},path="subnets",scope="Cluster",shortName={rn},singular="subnet"

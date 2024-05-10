@@ -127,7 +127,7 @@ func (r *ippoolClaimReconciler) getOrMarkIPPool(ctx context.Context, claim *requ
 
 	// The workload has changed the Subnets it expects to assign IP addresses to.
 	if exist {
-		if slices.Contains(claim.Spec.Subnets, rp.Labels[consts.LabelRefSubnet]) {
+		if slices.Contains(claim.Spec.Subnets, rp.Spec.Subnet) {
 			return &rp, nil
 		}
 		if err := r.client.Delete(ctx, &rp); err != nil {
@@ -148,6 +148,7 @@ func (r *ippoolClaimReconciler) getOrMarkIPPool(ctx context.Context, claim *requ
 		},
 		Spec: requeueipv1.IPPoolSpec{
 			Version: net.IPv4,
+			Subnet:  subnet.Name,
 			Ranges:  []string{},
 		},
 	}
@@ -190,7 +191,7 @@ func (r *ippoolClaimReconciler) selectSubnet(ctx context.Context, claim *requeue
 
 func (r *ippoolClaimReconciler) scale(ctx context.Context, pool *requeueipv1.IPPool, replicas int) error {
 	var rn requeueipv1.Subnet
-	if err := r.client.Get(ctx, types.NamespacedName{Name: pool.Labels[consts.LabelRefSubnet]}, &rn); err != nil {
+	if err := r.client.Get(ctx, types.NamespacedName{Name: pool.Spec.Subnet}, &rn); err != nil {
 		return err
 	}
 	if rn.Status.Count == nil {
@@ -418,7 +419,7 @@ func (r *ippoolClaimReconciler) claimIPBlock(
 		ObjectMeta: metav1.ObjectMeta{
 			Name: net.CIDRStringToName(block.String()),
 			Labels: map[string]string{
-				consts.LabelRefSubnet:    pool.Labels[consts.LabelRefSubnet],
+				consts.LabelRefSubnet:    pool.Spec.Subnet,
 				consts.LabelRefNamespace: pool.Namespace,
 				consts.LabelRefIPPool:    pool.Name,
 			},
