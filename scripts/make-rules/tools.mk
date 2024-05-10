@@ -59,7 +59,7 @@ install.kind:
 
 .PHONY: install.controller-gen
 install.controller-gen:
-	@$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
+	@$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
 
 .PHONY: install.oapi-codegen
 install.oapi-codegen:

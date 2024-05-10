@@ -23,8 +23,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -84,22 +84,24 @@ func (c *rpcClient) parseClaims(
 }
 
 func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolClaimSpec, object client.Object) error {
-	labels := map[string]string{
-		consts.LabelIPVersion:   strings.ToLower(spec.Version),
-		consts.LabelWorkloadUID: string(object.GetUID()),
-	}
+	name := object.GetName() + "-" + getUIDHash(spec.Version, string(object.GetUID()))
+	var rpc requeueipv1.IPPoolClaim
+	if err := c.client.Get(ctx, types.NamespacedName{
+		Namespace: object.GetNamespace(),
+		Name:      name,
+	}, &rpc); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
 
-	var rpcList requeueipv1.IPPoolClaimList
-	if err := c.client.List(ctx, &rpcList, client.MatchingLabels(labels), client.Limit(1)); err != nil {
-		return err
-	}
-
-	if len(rpcList.Items) == 0 {
 		rpc := &requeueipv1.IPPoolClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      attachHash(object.GetName()),
+				Name:      name,
 				Namespace: object.GetNamespace(),
-				Labels:    labels,
+				Labels: map[string]string{
+					consts.LabelIPVersion:   strings.ToLower(spec.Version),
+					consts.LabelWorkloadUID: string(object.GetUID()),
+				},
 			},
 			Spec: *spec,
 		}
@@ -110,20 +112,20 @@ func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolCla
 		return client.IgnoreAlreadyExists(c.client.Create(ctx, rpc))
 	}
 
-	if reflect.DeepEqual(rpcList.Items[0].Spec, *spec) {
+	if reflect.DeepEqual(rpc.Spec, *spec) {
 		return nil
 	}
-	rpcList.Items[0].Spec = *spec
+	rpc.Spec = *spec
 
-	return c.client.Update(ctx, &rpcList.Items[0])
+	return c.client.Update(ctx, &rpc)
 }
 
-func attachHash(name string) string {
+func getUIDHash(version, uid string) string {
+	id := fmt.Sprintf("%s-%s", uid, version)
 	h := fnv.New32a()
-	h.Write([]byte(uuid.NewString()))
-	hash := rand.SafeEncodeString(fmt.Sprint(h.Sum32()))
+	h.Write([]byte(id))
 
-	return name + "-" + hash
+	return rand.SafeEncodeString(fmt.Sprint(h.Sum32()))
 }
 
 func parseArray(arrStr string) []string {

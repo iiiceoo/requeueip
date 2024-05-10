@@ -73,7 +73,7 @@ func (r *ippoolClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, err
 		}
 
-		if metadata == nil || metadata.DeletionTimestamp.IsZero() {
+		if metadata == nil || !metadata.DeletionTimestamp.IsZero() {
 			controllerutil.RemoveFinalizer(&claim, consts.RFinalizer)
 			return ctrl.Result{}, r.client.Update(ctx, &claim)
 		}
@@ -286,12 +286,12 @@ func (r *ippoolClaimReconciler) scaleUp(
 		return err
 	}
 
-	bs, err := net.CountFromMaskSize(pool.Spec.Version, int(*subnet.Spec.BlockSize))
+	bStep, err := net.CountFromMaskSize(pool.Spec.Version, int(*subnet.Spec.BlockSize))
 	if err != nil {
 		return err
 	}
 
-	step := int(bs.Int64())
+	step := int(bStep.Int64())
 	ipTotal := len(rbList.Items) * step
 	if replicas <= ipTotal {
 		if err := r.scaleUpWithinExistingIPBlocks(ctx, pool, rbList.Items, replicas); err != nil {
@@ -303,7 +303,31 @@ func (r *ippoolClaimReconciler) scaleUp(
 		return nil
 	}
 
-	return r.scaleUpWithinNewIPBlocks(ctx, subnet, pool, rbList.Items, replicas, step)
+	delta := replicas - ipTotal
+	expect := delta / step
+	if delta%step != 0 {
+		expect++
+	}
+
+	fc := new(big.Int)
+	fc.SetString(subnet.Status.Count.Free, 10)
+	if fc.Cmp(big.NewInt(int64(expect*step))) < 0 {
+		return fmt.Errorf("unable to scale up IPPool %s in Subnet %s: %w", pool.Name, subnet.Name, errorInsufficientIPBlocks)
+	}
+
+	fbc := new(big.Int).Div(fc, bStep)
+	free, err := iprange.Parse(subnet.Status.Free...)
+	if err != nil {
+		return err
+	}
+
+	blocks, err := r.claimIPBlocks(ctx, pool, free, len(rbList.Items), expect, fbc, bStep)
+	if err != nil {
+		return err
+	}
+	rbList.Items = append(rbList.Items, blocks...)
+
+	return r.scaleUpWithinNewIPBlocks(ctx, pool, rbList.Items, replicas)
 }
 
 func (r *ippoolClaimReconciler) scaleUpWithinExistingIPBlocks(
@@ -333,49 +357,30 @@ func (r *ippoolClaimReconciler) scaleUpWithinExistingIPBlocks(
 	return r.client.Patch(ctx, pool, client.MergeFrom(old))
 }
 
-func (r *ippoolClaimReconciler) scaleUpWithinNewIPBlocks(
+func (r *ippoolClaimReconciler) claimIPBlocks(
 	ctx context.Context,
-	subnet *requeueipv1.Subnet,
 	pool *requeueipv1.IPPool,
-	blocks []requeueipv1.IPBlock,
-	replicas, step int,
-) error {
-	ranges, err := iprange.Parse(pool.Spec.Ranges...)
-	if err != nil {
-		return err
-	}
-
-	delta := replicas - int(ranges.Size().Int64())
-	expect := delta / step
-	if delta%step != 0 {
-		expect++
-	}
-
-	// The number of available IP addresses for a Subnet can be very large.
-	// Avoid using strconv.Atoi().
-	fc := new(big.Int)
-	fc.SetString(subnet.Status.Count.Free, 10)
-	if fc.Cmp(big.NewInt(int64(expect*step))) < 0 {
-		// TODO(iiiceoo): dead lock
-		return fmt.Errorf("unable to scale up IPPool %s in Subnet %s: %w", pool.Name, subnet.Name, errorInsufficientIPBlocks)
-	}
-
-	bStep := big.NewInt(int64(step))
-	bfc := new(big.Int).Div(fc, bStep)
-	free, err := iprange.Parse(subnet.Status.Free...)
-	if err != nil {
-		return err
-	}
-
+	free *iprange.IPRanges,
+	start, expect int,
+	total, step *big.Int,
+) ([]requeueipv1.IPBlock, error) {
 	var wg sync.WaitGroup
+	h := fnv.New32a()
 	errCh := make(chan error, expect)
 	blockCh := make(chan *requeueipv1.IPBlock, expect)
 	for i := 1; i <= expect; i++ {
+		id := fmt.Sprintf("%s-%d", pool.Name, start+i)
+		h.Write([]byte(id))
+		hash := h.Sum32()
+		h.Reset()
+
+		index := new(big.Int).Mod(big.NewInt(int64(hash)), total)
+		index.Add(index, one)
+
 		wg.Add(1)
-		index := getHashIndex(pool.Name, len(blocks)+i, bfc)
 		go func() {
 			defer wg.Done()
-			block, err := r.claimIPBlock(ctx, pool, free, bStep, index)
+			block, err := r.claimIPBlock(ctx, pool, free, step, index)
 			if err != nil {
 				errCh <- err
 				return
@@ -389,34 +394,16 @@ func (r *ippoolClaimReconciler) scaleUpWithinNewIPBlocks(
 
 	for err := range errCh {
 		if err != nil {
-			return newErrorRequeue()
+			return nil, newErrorRequeue()
 		}
 	}
 
+	blocks := make([]requeueipv1.IPBlock, 0, expect)
 	for block := range blockCh {
 		blocks = append(blocks, *block)
 	}
-	br, err := parseRangesFromIPBlocks(pool.Spec.Version, blocks)
-	if err != nil {
-		return err
-	}
 
-	ranges = br.Slice(zero, big.NewInt(int64(replicas)))
-	old := pool.DeepCopy()
-	pool.Spec.Ranges = ranges.Strings()
-
-	return r.client.Patch(ctx, pool, client.MergeFrom(old))
-}
-
-func getHashIndex(name string, num int, total *big.Int) *big.Int {
-	h := fnv.New32a()
-	id := fmt.Sprintf("%s-%d", name, num)
-	h.Write([]byte(id))
-
-	index := new(big.Int).Mod(big.NewInt(int64(h.Sum32())), total)
-	index.Add(index, one)
-
-	return index
+	return blocks, nil
 }
 
 func (r *ippoolClaimReconciler) claimIPBlock(
@@ -456,6 +443,24 @@ func (r *ippoolClaimReconciler) claimIPBlock(
 	}
 
 	return rb, nil
+}
+
+func (r *ippoolClaimReconciler) scaleUpWithinNewIPBlocks(
+	ctx context.Context,
+	pool *requeueipv1.IPPool,
+	blocks []requeueipv1.IPBlock,
+	replicas int,
+) error {
+	br, err := parseRangesFromIPBlocks(pool.Spec.Version, blocks)
+	if err != nil {
+		return err
+	}
+
+	ranges := br.Slice(zero, big.NewInt(int64(replicas-1))).Merge()
+	old := pool.DeepCopy()
+	pool.Spec.Ranges = ranges.Strings()
+
+	return r.client.Patch(ctx, pool, client.MergeFrom(old))
 }
 
 func (r *ippoolClaimReconciler) recycleIPBlocks(ctx context.Context, pool *requeueipv1.IPPool, blocks []requeueipv1.IPBlock) error {

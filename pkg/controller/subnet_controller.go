@@ -57,7 +57,12 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	var rpList requeueipv1.IPPoolList
-	if err := r.client.List(ctx, &rpList, client.MatchingLabels{consts.LabelRefSubnet: rn.Name}); err != nil {
+	if err := r.client.List(
+		ctx,
+		&rpList,
+		client.MatchingLabels{consts.LabelRefSubnet: rn.Name},
+		client.Limit(1),
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 

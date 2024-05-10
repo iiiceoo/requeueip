@@ -5,9 +5,8 @@ go 1.20
 require (
 	github.com/getkin/kin-openapi v0.124.0
 	github.com/go-logr/zapr v1.3.0
-	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/iiiceoo/iprange v0.2.0
+	github.com/iiiceoo/iprange v0.2.1
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/spf13/cobra v1.8.0
 	go.uber.org/zap v1.27.0
@@ -38,6 +37,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/yaml v0.2.0 // indirect
