@@ -6,7 +6,7 @@ require (
 	github.com/getkin/kin-openapi v0.124.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/gorilla/mux v1.8.1
-	github.com/iiiceoo/iprange v0.2.1
+	github.com/iiiceoo/iprange v0.2.2
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/spf13/cobra v1.8.0
 	go.uber.org/zap v1.27.0
