@@ -68,7 +68,7 @@ spec:
                 items:
                   type: string
                 type: array
-              string:
+              subnet:
                 type: string
               version:
                 enum:
@@ -77,7 +77,7 @@ spec:
                 type: string
             required:
             - ranges
-            - string
+            - subnet
             - version
             type: object
           status:

@@ -27,7 +27,7 @@ type IPPoolSpec struct {
 	Version string `json:"version"`
 
 	// +kubebuilder:validation:Required
-	Subnet string `json:"string"`
+	Subnet string `json:"subnet"`
 
 	// +kubebuilder:validation:Required
 	Ranges []string `json:"ranges"`
@@ -35,11 +35,11 @@ type IPPoolSpec struct {
 
 // IPPoolStatus defines the observed state of IPPool.
 type IPPoolStatus struct {
-	// +kubebuilder:validation:Optional
-	Count *Count `json:"count,omitempty"`
-
 	// +kubebuilder:validation:Required
 	Free []string `json:"free"`
+
+	// +kubebuilder:validation:Optional
+	Count *Count `json:"count,omitempty"`
 }
 
 // +kubebuilder:resource:categories={requeueip},path="ippools",scope="Namespaced",shortName={rp},singular="ippool"

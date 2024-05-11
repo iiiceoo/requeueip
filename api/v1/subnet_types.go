@@ -35,19 +35,19 @@ type SubnetSpec struct {
 
 // SubnetStatus defines the observed state of Subnet.
 type SubnetStatus struct {
-	// +kubebuilder:validation:Optional
-	Count *Count `json:"count,omitempty"`
-
 	// +kubebuilder:validation:Required
 	Free []string `json:"free"`
+
+	// +kubebuilder:validation:Optional
+	BlockCount *BlockCount `json:"blockCount,omitempty"`
 }
 
 // +kubebuilder:resource:categories={requeueip},path="subnets",scope="Cluster",shortName={rn},singular="subnet"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.cidr",description="cidr",name="CIDR",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.blockSize",description="blockSize",name="BLOCK-SIZE",type=integer
-// +kubebuilder:printcolumn:JSONPath=".status.count.used",description="used",name="USED",type=string
-// +kubebuilder:printcolumn:JSONPath=".status.count.total",description="total",name="TOTAL",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.blockCount.used",description="used",name="BLOCK-USED",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.blockCount.total",description="total",name="BLOCK-TOTAL",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of Subnet",name="AGE",type=date
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status

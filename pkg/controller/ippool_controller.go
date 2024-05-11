@@ -93,10 +93,10 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if status.Count == nil {
 		status.Count = &requeueipv1.Count{}
 	}
+	status.Free = free.Strings()
 	status.Count.Total = total.Size().String()
 	status.Count.Used = used.Size().String()
 	status.Count.Free = free.Size().String()
-	status.Free = free.Strings()
 	if reflect.DeepEqual(status, rp.Status) {
 		return ctrl.Result{}, nil
 	}

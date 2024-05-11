@@ -26,3 +26,14 @@ type Count struct {
 	// +kubebuilder:validation:Required
 	Free string `json:"free"`
 }
+
+type BlockCount struct {
+	// +kubebuilder:validation:Required
+	Total string `json:"total"`
+
+	// +kubebuilder:validation:Required
+	Used string `json:"used"`
+
+	// +kubebuilder:validation:Required
+	Free string `json:"free"`
+}

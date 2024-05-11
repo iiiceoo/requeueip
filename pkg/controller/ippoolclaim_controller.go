@@ -173,15 +173,19 @@ func (r *ippoolClaimReconciler) selectSubnet(ctx context.Context, claim *requeue
 			}
 			return nil, err
 		}
-		if rn.Status.Count == nil {
+		if rn.Status.BlockCount == nil {
 			return nil, newErrorRequeue()
 		}
 
-		// The number of available IP addresses for a Subnet can be very large.
-		// Avoid using strconv.Atoi().
-		fc := new(big.Int)
-		fc.SetString(rn.Status.Count.Free, 10)
-		if fc.Cmp(big.NewInt(int64(claim.Spec.Replicas))) >= 0 {
+		step, err := net.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
+		if err != nil {
+			return nil, err
+		}
+
+		count := new(big.Int)
+		count.SetString(rn.Status.BlockCount.Free, 10)
+		count.Mul(count, step)
+		if count.Cmp(big.NewInt(int64(claim.Spec.Replicas))) >= 0 {
 			return &rn, nil
 		}
 	}
@@ -194,7 +198,7 @@ func (r *ippoolClaimReconciler) scale(ctx context.Context, pool *requeueipv1.IPP
 	if err := r.client.Get(ctx, types.NamespacedName{Name: pool.Spec.Subnet}, &rn); err != nil {
 		return err
 	}
-	if rn.Status.Count == nil {
+	if rn.Status.BlockCount == nil {
 		return newErrorRequeue()
 	}
 
@@ -255,13 +259,13 @@ func (r *ippoolClaimReconciler) scaleDown(
 		return err
 	}
 
-	bs, err := net.CountFromMaskSize(pool.Spec.Version, int(*subnet.Spec.BlockSize))
+	bStep, err := net.CountFromMaskSize(pool.Spec.Version, int(*subnet.Spec.BlockSize))
 	if err != nil {
 		return err
 	}
-
-	step := int(bs.Int64())
+	step := int(bStep.Int64())
 	ipTotal := len(rbList.Items) * step
+
 	if ipTotal-replicas >= step {
 		return r.recycleIPBlocks(ctx, pool, rbList.Items)
 	}
@@ -291,9 +295,9 @@ func (r *ippoolClaimReconciler) scaleUp(
 	if err != nil {
 		return err
 	}
-
 	step := int(bStep.Int64())
 	ipTotal := len(rbList.Items) * step
+
 	if replicas <= ipTotal {
 		if err := r.scaleUpWithinExistingIPBlocks(ctx, pool, rbList.Items, replicas); err != nil {
 			return err
@@ -310,19 +314,17 @@ func (r *ippoolClaimReconciler) scaleUp(
 		expect++
 	}
 
-	fc := new(big.Int)
-	fc.SetString(subnet.Status.Count.Free, 10)
-	if fc.Cmp(big.NewInt(int64(expect*step))) < 0 {
+	count := new(big.Int)
+	count.SetString(subnet.Status.BlockCount.Free, 10)
+	if count.Cmp(big.NewInt(int64(expect))) < 0 {
 		return fmt.Errorf("unable to scale up IPPool %s in Subnet %s: %w", pool.Name, subnet.Name, errorInsufficientIPBlocks)
 	}
 
-	fbc := new(big.Int).Div(fc, bStep)
 	free, err := iprange.Parse(subnet.Status.Free...)
 	if err != nil {
 		return err
 	}
-
-	blocks, err := r.claimIPBlocks(ctx, pool, free, len(rbList.Items), expect, fbc, bStep)
+	blocks, err := r.claimIPBlocks(ctx, pool, free, len(rbList.Items), expect, count, bStep)
 	if err != nil {
 		return err
 	}

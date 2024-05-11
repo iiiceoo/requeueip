@@ -32,12 +32,12 @@ spec:
       name: BLOCK-SIZE
       type: integer
     - description: used
-      jsonPath: .status.count.used
-      name: USED
+      jsonPath: .status.blockCount.used
+      name: BLOCK-USED
       type: string
     - description: total
-      jsonPath: .status.count.total
-      name: TOTAL
+      jsonPath: .status.blockCount.total
+      name: BLOCK-TOTAL
       type: string
     - description: The age of Subnet
       jsonPath: .metadata.creationTimestamp
@@ -84,7 +84,7 @@ spec:
           status:
             description: SubnetStatus defines the observed state of Subnet.
             properties:
-              count:
+              blockCount:
                 properties:
                   free:
                     type: string
