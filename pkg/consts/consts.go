@@ -39,11 +39,6 @@ const (
 )
 
 const (
-	LabelIPVersion   = RPrefix + "/" + "ip-version"
-	LabelWorkloadUID = RPrefix + "/" + "workload-uid"
-)
-
-const (
 	AnnoIPv4Subnets = RPrefix + "/" + "ipv4-subnets"
 	AnnoIPv6Subnets = RPrefix + "/" + "ipv6-subnets"
 )

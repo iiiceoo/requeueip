@@ -98,10 +98,6 @@ func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolCla
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: object.GetNamespace(),
-				Labels: map[string]string{
-					consts.LabelIPVersion:   strings.ToLower(spec.Version),
-					consts.LabelWorkloadUID: string(object.GetUID()),
-				},
 			},
 			Spec: *spec,
 		}
