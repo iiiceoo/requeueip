@@ -19,19 +19,19 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: version
+    - description: The IP version of the IPPool to be synced.
       jsonPath: .spec.version
       name: VERSION
       type: string
-    - description: workload
+    - description: The kind of owner workload.
       jsonPath: .metadata.ownerReferences[0].kind
       name: WORKLOAD
       type: string
-    - description: replicas
+    - description: The total number of IP addresses of the IPPool to be synced.
       jsonPath: .spec.replicas
       name: REPLICAS
       type: integer
-    - description: The age of IPPoolClaim
+    - description: The age of IPPoolClaim.
       jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -61,15 +61,20 @@ spec:
             description: IPPoolClaimSpec defines the desired state of IPPoolClaim.
             properties:
               replicas:
+                description: |-
+                  The total number of IP addresses of the IPPool to be synced. It should
+                  always be consistent with the replica of the owner workload.
                 format: int32
                 minimum: 0
                 type: integer
               subnets:
+                description: List of candidate Subnet names for IP address assignments.
                 items:
                   type: string
                 minItems: 1
                 type: array
               version:
+                description: The IP version of the IPPool to be synced.
                 enum:
                 - IPv4
                 - IPv6

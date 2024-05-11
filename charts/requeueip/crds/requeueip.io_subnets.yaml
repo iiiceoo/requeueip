@@ -19,27 +19,27 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - description: version
+    - description: The IP version of Subnet.
       jsonPath: .spec.version
       name: VERSION
       type: string
-    - description: cidr
+    - description: The CIDR of Subnet.
       jsonPath: .spec.cidr
       name: CIDR
       type: string
-    - description: blockSize
+    - description: The minimum unit of IP address assignments from Subnet.
       jsonPath: .spec.blockSize
       name: BLOCK-SIZE
       type: integer
-    - description: used
+    - description: The number of used IP blocks.
       jsonPath: .status.blockCount.used
       name: BLOCK-USED
       type: string
-    - description: total
+    - description: The number of total IP blocks.
       jsonPath: .status.blockCount.total
       name: BLOCK-TOTAL
       type: string
-    - description: The age of Subnet
+    - description: The age of Subnet.
       jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -69,11 +69,16 @@ spec:
             description: SubnetSpec defines the desired state of Subnet.
             properties:
               blockSize:
+                description: |-
+                  The minimum unit of IP address assignments from Subnet. Defaults to 30
+                  for IPv4 and 126 for IPv6.
                 format: int32
                 type: integer
               cidr:
+                description: The CIDR of Subnet.
                 type: string
               version:
+                description: The IP version of Subnet.
                 enum:
                 - IPv4
                 - IPv6
@@ -85,12 +90,16 @@ spec:
             description: SubnetStatus defines the observed state of Subnet.
             properties:
               blockCount:
+                description: The IP block count status of Subnet.
                 properties:
                   free:
+                    description: The number of available IP blocks.
                     type: string
                   total:
+                    description: The number of total IP blocks.
                     type: string
                   used:
+                    description: The number of used IP blocks.
                     type: string
                 required:
                 - free
@@ -98,6 +107,7 @@ spec:
                 - used
                 type: object
               free:
+                description: The current available IP ranges of Subnet.
                 items:
                   type: string
                 type: array

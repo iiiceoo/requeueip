@@ -19,23 +19,23 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: version
+    - description: The IP version of IPPool.
       jsonPath: .spec.version
       name: VERSION
       type: string
-    - description: subnet
+    - description: The subnet to which IPPool belongs.
       jsonPath: .spec.subnet
       name: SUBNET
       type: string
-    - description: used
+    - description: The number of used IP addresses.
       jsonPath: .status.count.used
       name: USED
       type: string
-    - description: total
+    - description: The number of total IP addresses.
       jsonPath: .status.count.total
       name: TOTAL
       type: string
-    - description: The age of IPPool
+    - description: The age of IPPool.
       jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -65,12 +65,16 @@ spec:
             description: IPPoolSpec defines the desired state of IPPool.
             properties:
               ranges:
+                description: The IP ranges of IPPool, which represents a set of consecutive
+                  IP addresses.
                 items:
                   type: string
                 type: array
               subnet:
+                description: The subnet to which IPPool belongs.
                 type: string
               version:
+                description: The IP version of IPPool.
                 enum:
                 - IPv4
                 - IPv6
@@ -84,12 +88,16 @@ spec:
             description: IPPoolStatus defines the observed state of IPPool.
             properties:
               count:
+                description: The count status of IPPool.
                 properties:
                   free:
+                    description: The number of available IP addresses.
                     type: string
                   total:
+                    description: The number of total IP addresses.
                     type: string
                   used:
+                    description: The number of used IP addresses.
                     type: string
                 required:
                 - free
@@ -97,6 +105,7 @@ spec:
                 - used
                 type: object
               free:
+                description: The current available IP ranges of IPPool.
                 items:
                   type: string
                 type: array

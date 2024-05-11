@@ -24,30 +24,58 @@ import (
 type IPPoolSpec struct {
 	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Required
+
+	// The IP version of IPPool.
 	Version string `json:"version"`
 
 	// +kubebuilder:validation:Required
+
+	// The subnet to which IPPool belongs.
 	Subnet string `json:"subnet"`
 
 	// +kubebuilder:validation:Required
+
+	// The IP ranges of IPPool, which represents a set of consecutive IP addresses.
 	Ranges []string `json:"ranges"`
 }
 
 // IPPoolStatus defines the observed state of IPPool.
 type IPPoolStatus struct {
 	// +kubebuilder:validation:Required
+
+	// The current available IP ranges of IPPool.
 	Free []string `json:"free"`
 
 	// +kubebuilder:validation:Optional
+
+	// The count status of IPPool.
 	Count *Count `json:"count,omitempty"`
 }
 
+// Count represents the count status of IPPool.
+type Count struct {
+	// +kubebuilder:validation:Required
+
+	// The number of total IP addresses.
+	Total string `json:"total"`
+
+	// +kubebuilder:validation:Required
+
+	// The number of used IP addresses.
+	Used string `json:"used"`
+
+	// +kubebuilder:validation:Required
+
+	// The number of available IP addresses.
+	Free string `json:"free"`
+}
+
 // +kubebuilder:resource:categories={requeueip},path="ippools",scope="Namespaced",shortName={rp},singular="ippool"
-// +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
-// +kubebuilder:printcolumn:JSONPath=".spec.subnet",description="subnet",name="SUBNET",type=string
-// +kubebuilder:printcolumn:JSONPath=".status.count.used",description="used",name="USED",type=string
-// +kubebuilder:printcolumn:JSONPath=".status.count.total",description="total",name="TOTAL",type=string
-// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPool",name="AGE",type=date
+// +kubebuilder:printcolumn:JSONPath=".spec.version",description="The IP version of IPPool.",name="VERSION",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.subnet",description="The subnet to which IPPool belongs.",name="SUBNET",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.count.used",description="The number of used IP addresses.",name="USED",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.count.total",description="The number of total IP addresses.",name="TOTAL",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPool.",name="AGE",type=date
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 

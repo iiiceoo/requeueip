@@ -24,22 +24,29 @@ import (
 type IPPoolClaimSpec struct {
 	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Required
+
+	// The IP version of the IPPool to be synced.
 	Version string `json:"version"`
 
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
+
+	// List of candidate Subnet names for IP address assignments.
 	Subnets []string `json:"subnets"`
 
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Required
+
+	// The total number of IP addresses of the IPPool to be synced. It should
+	// always be consistent with the replica of the owner workload.
 	Replicas int32 `json:"replicas"`
 }
 
 // +kubebuilder:resource:categories={requeueip},path="ippoolclaims",scope="Namespaced",shortName={rpc},singular="ippoolclaim"
-// +kubebuilder:printcolumn:JSONPath=".spec.version",description="version",name="VERSION",type=string
-// +kubebuilder:printcolumn:JSONPath=".metadata.ownerReferences[0].kind",description="workload",name="WORKLOAD",type=string
-// +kubebuilder:printcolumn:JSONPath=".spec.replicas",description="replicas",name="REPLICAS",type=integer
-// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPoolClaim",name="AGE",type=date
+// +kubebuilder:printcolumn:JSONPath=".spec.version",description="The IP version of the IPPool to be synced.",name="VERSION",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.ownerReferences[0].kind",description="The kind of owner workload.",name="WORKLOAD",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.replicas",description="The total number of IP addresses of the IPPool to be synced.",name="REPLICAS",type=integer
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPoolClaim.",name="AGE",type=date
 // +kubebuilder:object:root=true
 
 // IPPoolClaim is the Schema for the IPPoolClaims API.
