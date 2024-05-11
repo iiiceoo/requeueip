@@ -23,20 +23,20 @@ import (
 
 func NewWorkloadReconciler(c client.Client) *workloadReconciler {
 	return &workloadReconciler{
-		dr: newDeploymentReconciler(c),
-		sr: newStatefulSetReconciler(c),
+		deployReconciler: newDeploymentReconciler(c),
+		stsReconciler:    newStatefulSetReconciler(c),
 	}
 }
 
 type workloadReconciler struct {
-	dr *deploymentReconciler
-	sr *statefulSetReconciler
+	deployReconciler *deploymentReconciler
+	stsReconciler    *statefulSetReconciler
 }
 
 func (r *workloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := r.dr.setupWithManager(mgr); err != nil {
+	if err := r.deployReconciler.setupWithManager(mgr); err != nil {
 		return err
 	}
 
-	return r.sr.setupWithManager(mgr)
+	return r.stsReconciler.setupWithManager(mgr)
 }

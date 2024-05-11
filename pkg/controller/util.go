@@ -30,6 +30,7 @@ var (
 	one  = big.NewInt(1)
 )
 
+// parseRangesFromIPs aggregates multiple IPs into unmerged IPRanges.
 func parseRangesFromIPs(version string, ips []requeueipv1.IP) (*iprange.IPRanges, error) {
 	ipStrs := make([]string, 0, len(ips))
 	for i := 0; i < len(ips); i++ {
@@ -43,6 +44,7 @@ func parseRangesFromIPs(version string, ips []requeueipv1.IP) (*iprange.IPRanges
 	return iprange.Parse(ipStrs...)
 }
 
+// parseRangesFromIPBlocks aggregates multiple IPBlocks into unmerged IPRanges.
 func parseRangesFromIPBlocks(version string, blocks []requeueipv1.IPBlock) (*iprange.IPRanges, error) {
 	blockStrs := make([]string, 0, len(blocks))
 	for i := 0; i < len(blocks); i++ {

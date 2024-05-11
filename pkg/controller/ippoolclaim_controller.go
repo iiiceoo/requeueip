@@ -67,6 +67,8 @@ func (r *ippoolClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Remove the IPPoolClaim when the owner workload does not exist or is
+	// terminating.
 	if !claim.DeletionTimestamp.IsZero() {
 		metadata, err := r.getOwnerMetadata(ctx, &claim)
 		if err != nil {
@@ -80,7 +82,7 @@ func (r *ippoolClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// To ensure that IPBlocks are always correctly recycled, it is necessary
-	// to create an empty IPPool with LabelRefSubnet set before claiming IPBlocks.
+	// to create an empty IPPool before claiming IPBlocks.
 	pool, err := r.getOrMarkIPPool(ctx, &claim)
 	if err != nil {
 		return ignoreRequeue(err)
@@ -173,6 +175,9 @@ func (r *ippoolClaimReconciler) selectSubnet(ctx context.Context, claim *requeue
 			}
 			return nil, err
 		}
+
+		// Do not skip the Subnet that is not ready, but try again later, respecting
+		// the order of candidate Subnets as much as possible.
 		if rn.Status.BlockCount == nil {
 			return nil, newErrorRequeue()
 		}
@@ -202,14 +207,14 @@ func (r *ippoolClaimReconciler) scale(ctx context.Context, pool *requeueipv1.IPP
 		return newErrorRequeue()
 	}
 
-	// Do not use .status.count.all as it may not have been set correctly when
-	// IPPool first created.
+	// Do not use .status.count.all as it may not have been set when IPPool
+	// first created.
 	ranges, err := iprange.Parse(pool.Spec.Ranges...)
 	if err != nil {
 		return err
 	}
 
-	// The replicas for the workload cannot exceed the maximum value of int.
+	// The replica for the workload cannot exceed the maximum value of int.
 	poolSize := int(ranges.Size().Int64())
 	if replicas < poolSize {
 		return r.scaleDown(ctx, &rn, pool, replicas)
@@ -221,12 +226,7 @@ func (r *ippoolClaimReconciler) scale(ctx context.Context, pool *requeueipv1.IPP
 	return nil
 }
 
-func (r *ippoolClaimReconciler) scaleDown(
-	ctx context.Context,
-	subnet *requeueipv1.Subnet,
-	pool *requeueipv1.IPPool,
-	replicas int,
-) error {
+func (r *ippoolClaimReconciler) scaleDown(ctx context.Context, subnet *requeueipv1.Subnet, pool *requeueipv1.IPPool, replicas int) error {
 	if pool.Status.Count == nil {
 		return newErrorRequeue()
 	}
@@ -236,7 +236,7 @@ func (r *ippoolClaimReconciler) scaleDown(
 		return err
 	}
 
-	// Wait for the replicas of workload to converge before scaling down IPPool.
+	// Wait for the replica of workload to converge before scaling down IPPool.
 	// The default DeletionGracePeriodSeconds for Pod is 30 seconds.
 	if uc != replicas {
 		return newErrorRequeueAfter(10 * time.Second)
@@ -247,6 +247,7 @@ func (r *ippoolClaimReconciler) scaleDown(
 		return err
 	}
 
+	// Never get IPBlocks from the cache.
 	var rbList requeueipv1.IPBlockList
 	if err := r.reader.List(
 		ctx,
@@ -263,9 +264,9 @@ func (r *ippoolClaimReconciler) scaleDown(
 	if err != nil {
 		return err
 	}
+
 	step := int(bStep.Int64())
 	ipTotal := len(rbList.Items) * step
-
 	if ipTotal-replicas >= step {
 		return r.recycleIPBlocks(ctx, pool, rbList.Items)
 	}
@@ -273,12 +274,8 @@ func (r *ippoolClaimReconciler) scaleDown(
 	return nil
 }
 
-func (r *ippoolClaimReconciler) scaleUp(
-	ctx context.Context,
-	subnet *requeueipv1.Subnet,
-	pool *requeueipv1.IPPool,
-	replicas int,
-) error {
+func (r *ippoolClaimReconciler) scaleUp(ctx context.Context, subnet *requeueipv1.Subnet, pool *requeueipv1.IPPool, replicas int) error {
+	// Never get IPBlocks from the cache.
 	var rbList requeueipv1.IPBlockList
 	if err := r.reader.List(
 		ctx,
@@ -295,9 +292,9 @@ func (r *ippoolClaimReconciler) scaleUp(
 	if err != nil {
 		return err
 	}
+
 	step := int(bStep.Int64())
 	ipTotal := len(rbList.Items) * step
-
 	if replicas <= ipTotal {
 		if err := r.scaleUpWithinExistingIPBlocks(ctx, pool, rbList.Items, replicas); err != nil {
 			return err
@@ -328,9 +325,8 @@ func (r *ippoolClaimReconciler) scaleUp(
 	if err != nil {
 		return err
 	}
-	rbList.Items = append(rbList.Items, blocks...)
 
-	return r.scaleUpWithinNewIPBlocks(ctx, pool, rbList.Items, replicas)
+	return r.scaleUpWithinNewIPBlocks(ctx, pool, append(rbList.Items, blocks...), replicas)
 }
 
 func (r *ippoolClaimReconciler) scaleUpWithinExistingIPBlocks(
@@ -349,14 +345,15 @@ func (r *ippoolClaimReconciler) scaleUpWithinExistingIPBlocks(
 		return err
 	}
 
-	// The version of ranges may be Unknown when init an empty IPPool. Never
-	// never use ranges.Union(dr).
+	// The version of IPRanges may be Unknown when init an empty IPPool.
+	// Never never use ranges.Union(dr).
 	delta := int64(replicas) - ranges.Size().Int64()
 	dr := br.Diff(ranges).Slice(zero, big.NewInt(delta-1))
-
 	old := pool.DeepCopy()
 	pool.Spec.Ranges = dr.Union(ranges).Strings()
 
+	// No other component attempts to update the IPPool spec, using patch to
+	// avoid conflicts.
 	return r.client.Patch(ctx, pool, client.MergeFrom(old))
 }
 
@@ -438,6 +435,7 @@ func (r *ippoolClaimReconciler) claimIPBlock(
 			iter.Reset()
 			block = iter.Next()
 		}
+
 		rb.SetName(net.CIDRStringToName(block.String()))
 		if err := r.client.Create(ctx, rb); err != nil {
 			// TODO(iiiceoo): Log.
@@ -454,15 +452,18 @@ func (r *ippoolClaimReconciler) scaleUpWithinNewIPBlocks(
 	blocks []requeueipv1.IPBlock,
 	replicas int,
 ) error {
-	br, err := parseRangesFromIPBlocks(pool.Spec.Version, blocks)
+	ranges, err := parseRangesFromIPBlocks(pool.Spec.Version, blocks)
 	if err != nil {
 		return err
 	}
 
-	ranges := br.Slice(zero, big.NewInt(int64(replicas-1))).Merge()
+	// Do Merge to compress and sort the IPRanges.
+	ranges = ranges.Slice(zero, big.NewInt(int64(replicas-1))).Merge()
 	old := pool.DeepCopy()
 	pool.Spec.Ranges = ranges.Strings()
 
+	// No other component attempts to update the IPPool spec, using patch to
+	// avoid conflicts.
 	return r.client.Patch(ctx, pool, client.MergeFrom(old))
 }
 

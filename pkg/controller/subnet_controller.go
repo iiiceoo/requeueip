@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	"github.com/iiiceoo/iprange"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -50,6 +51,20 @@ func (r *SubnetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+var mapFuncForSubnet = func(ctx context.Context, o client.Object) []reconcile.Request {
+	labels := o.GetLabels()
+	if labels == nil {
+		return nil
+	}
+
+	v, ok := labels[consts.LabelRefSubnet]
+	if !ok {
+		return nil
+	}
+
+	return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: v}}}
+}
+
 var _ reconcile.Reconciler = &SubnetReconciler{}
 
 func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -68,6 +83,7 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// Remove the Subnet when there is no workloads depend on it.
 	if len(rpList.Items) == 0 && !rn.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(&rn, consts.RFinalizer)
 		return ctrl.Result{}, r.client.Update(ctx, &rn)
@@ -75,11 +91,6 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	var rbList requeueipv1.IPBlockList
 	if err := r.client.List(ctx, &rbList, client.MatchingLabels{consts.LabelRefSubnet: rn.Name}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	step, err := net.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
-	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -93,6 +104,10 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 	free := total.DeepCopy().Diff(used)
+	step, err := net.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Update Subnet status if its current status has changed.
 	status := rn.Status.DeepCopy()

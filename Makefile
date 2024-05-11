@@ -46,7 +46,7 @@ fmt: tools.verify.golines tools.verify.goimports
 	@echo "==> Formating codes"
 	@$(FIND) -type f -name '*.go' | $(XARGS) gofmt -s -w
 	@$(FIND) -type f -name '*.go' | $(XARGS) goimports -w -local $(ROOT_PACKAGE)
-	@$(FIND) -type f -name '*.go' | $(XARGS) golines -w --max-len=135 --reformat-tags --ignore-generated .
+	@$(FIND) -type f -name '*.go' | $(XARGS) golines -w --max-len=140 --reformat-tags --ignore-generated .
 	@$(GO) mod edit -fmt
 
 ## tidy: go mod tidy

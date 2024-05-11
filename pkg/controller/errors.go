@@ -24,23 +24,29 @@ import (
 )
 
 var (
+	// The Subnet does not have enough IP blocks for IP address assignments.
 	errorInsufficientIPBlocks = errors.New("IP blocks are insufficient")
 )
 
+// newErrorRequeue returns an error for requeuing.
 func newErrorRequeue() error {
 	return &errorRequeue{Requeue: true}
 }
 
+// newErrorRequeueAfter returns an error for delayed requeuing.
 func newErrorRequeueAfter(delay time.Duration) error {
 	return &errorRequeue{RequeueAfter: delay}
 }
 
+// errorRequeue wraps ctrl.Result.
 type errorRequeue ctrl.Result
 
+// Error implements error.
 func (e *errorRequeue) Error() string {
 	return "requeue"
 }
 
+// ignoreRequeue converts error to the result of Reconciler.
 func ignoreRequeue(err error) (ctrl.Result, error) {
 	if err == nil {
 		return ctrl.Result{}, nil

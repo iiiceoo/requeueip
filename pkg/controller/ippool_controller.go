@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"github.com/iiiceoo/iprange"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -48,6 +49,23 @@ func (r *IPPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+var mapFuncForIPPool = func(ctx context.Context, o client.Object) []reconcile.Request {
+	labels := o.GetLabels()
+	if labels == nil {
+		return nil
+	}
+
+	v, ok := labels[consts.LabelRefIPPool]
+	if !ok {
+		return nil
+	}
+
+	return []reconcile.Request{{NamespacedName: types.NamespacedName{
+		Namespace: o.GetNamespace(),
+		Name:      v,
+	}}}
+}
+
 var _ reconcile.Reconciler = &IPPoolReconciler{}
 
 func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -61,6 +79,11 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// Release the IPPool when no Pod is using it. This judgment may not be
+	// accurate because an empty workload also meets the above conditions, but
+	// the IPPool should not be released. There is a cost to getting the owner
+	// workload, and IPPool is an internal resource that doesn't take too many
+	// edge cases into account.
 	if len(riList.Items) == 0 && !rp.DeletionTimestamp.IsZero() {
 		if err := r.client.DeleteAllOf(
 			ctx,
