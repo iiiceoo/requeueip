@@ -78,7 +78,8 @@ func CountFromMaskSize(version string, maskSize int) (*big.Int, error) {
 	default:
 		return nil, fmt.Errorf("invalid IP version: %s", version)
 	}
-	count := big.NewInt(1).Lsh(big.NewInt(1), uint(bits-maskSize))
+	count := big.NewInt(1)
+	count = count.Lsh(count, uint(bits-maskSize))
 
 	return count, nil
 }

@@ -348,7 +348,7 @@ func (r *ippoolClaimReconciler) scaleUpWithinExistingIPBlocks(
 	// The version of IPRanges may be Unknown when init an empty IPPool.
 	// Never never use ranges.Union(dr).
 	delta := int64(replicas) - ranges.Size().Int64()
-	dr := br.Diff(ranges).Slice(zero, big.NewInt(delta-1))
+	dr := br.Diff(ranges).Slice(consts.BigInt[0], big.NewInt(delta-1))
 	old := pool.DeepCopy()
 	pool.Spec.Ranges = dr.Union(ranges).Strings()
 
@@ -375,7 +375,7 @@ func (r *ippoolClaimReconciler) claimIPBlocks(
 		h.Reset()
 
 		index := new(big.Int).Mod(big.NewInt(int64(hash)), total)
-		index.Add(index, one)
+		index.Add(index, consts.BigInt[1])
 
 		wg.Add(1)
 		go func() {
@@ -458,7 +458,7 @@ func (r *ippoolClaimReconciler) scaleUpWithinNewIPBlocks(
 	}
 
 	// Do Merge to compress and sort the IPRanges.
-	ranges = ranges.Slice(zero, big.NewInt(int64(replicas-1))).Merge()
+	ranges = ranges.Slice(consts.BigInt[0], big.NewInt(int64(replicas-1))).Merge()
 	old := pool.DeepCopy()
 	pool.Spec.Ranges = ranges.Strings()
 
