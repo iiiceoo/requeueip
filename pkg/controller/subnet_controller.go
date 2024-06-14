@@ -104,22 +104,24 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 	free := total.DeepCopy().Diff(used)
+
+	// Update Subnet status if its current status has changed.
+	count := new(big.Int)
 	step, err := net.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Update Subnet status if its current status has changed.
-	status := rn.Status.DeepCopy()
-	if status.BlockCount == nil {
-		status.BlockCount = &requeueipv1.BlockCount{}
+	status := &requeueipv1.SubnetStatus{
+		Free: free.Strings(),
+		BlockCount: &requeueipv1.BlockCount{
+			Total: count.Div(total.Size(), step).String(),
+			Used:  count.Div(used.Size(), step).String(),
+			Free:  count.Div(free.Size(), step).String(),
+		},
 	}
-	count := new(big.Int)
-	status.Free = free.Strings()
-	status.BlockCount.Total = count.Div(total.Size(), step).String()
-	status.BlockCount.Used = count.Div(used.Size(), step).String()
-	status.BlockCount.Free = count.Div(free.Size(), step).String()
-	if reflect.DeepEqual(status, rn.Status) {
+
+	if reflect.DeepEqual(status, &rn.Status) {
 		return ctrl.Result{}, nil
 	}
 	rn.Status = *status

@@ -112,15 +112,16 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	free := total.DeepCopy().Diff(used)
 
 	// Update IPPool status if its current status has changed.
-	status := rp.Status.DeepCopy()
-	if status.Count == nil {
-		status.Count = &requeueipv1.Count{}
+	status := &requeueipv1.IPPoolStatus{
+		Free: free.Strings(),
+		Count: &requeueipv1.Count{
+			Total: total.Size().String(),
+			Used:  used.Size().String(),
+			Free:  free.Size().String(),
+		},
 	}
-	status.Free = free.Strings()
-	status.Count.Total = total.Size().String()
-	status.Count.Used = used.Size().String()
-	status.Count.Free = free.Size().String()
-	if reflect.DeepEqual(status, rp.Status) {
+
+	if reflect.DeepEqual(status, &rp.Status) {
 		return ctrl.Result{}, nil
 	}
 	rp.Status = *status

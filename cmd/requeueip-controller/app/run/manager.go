@@ -84,7 +84,7 @@ func run(ctx context.Context) error {
 		}),
 		HealthProbeBindAddress: arg.probeAddr,
 		LeaderElection:         true,
-		LeaderElectionID:       consts.RPrefix,
+		LeaderElectionID:       consts.APP,
 	})
 	if err != nil {
 		return err

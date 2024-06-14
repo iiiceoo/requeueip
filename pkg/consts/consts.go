@@ -27,6 +27,7 @@ const (
 )
 
 const (
+	APP        = "requeueip"
 	RPrefix    = requeueip
 	RFinalizer = RPrefix + "/" + "protection"
 )
