@@ -1,0 +1,85 @@
+{{- $ca := genCA "requeueip-ca" (.Values.tls.auto.caValidityDuration | int) -}}
+{{- $cn := "requeueip.io" -}}
+{{- $svcName := printf "%s-%s" (include "requeueip.fullname" .) "webhook" -}}
+{{- $dns1 := printf "%s.%s" $svcName .Release.Namespace -}}
+{{- $dns2 := printf "%s.%s.svc" $svcName .Release.Namespace -}}
+{{- $dns3 := printf "%s.%s.svc.%s" $svcName .Release.Namespace .Values.clusterDomain -}}
+{{- $dns := append .Values.tls.auto.extraDNSNames $cn -}}
+{{- $dns := append $dns $dns1 -}}
+{{- $dns := append $dns $dns2 -}}
+{{- $dns := append $dns $dns3 -}}
+{{- $cert := genSignedCert $cn .Values.tls.auto.extraIPAddresses $dns (.Values.tls.auto.certValidityDuration | int) $ca -}}
+{{- $certData := dict "tls_crt" ($cert.Cert | b64enc) "tls_key" ($cert.Key | b64enc) "ca_crt" ($ca.Cert | b64enc) -}}
+{{- $secretName := printf "%s-%s" (include "requeueip.fullname" .) "webhook-cert" -}}
+{{- $prevSecret := (lookup "v1" "Secret" .Release.Namespace $secretName) -}}
+{{- if $prevSecret -}}
+{{- $_ := set $certData "tls_crt" (index $prevSecret.data "tls.crt") -}}
+{{- $_ := set $certData "tls_key" (index $prevSecret.data "tls.key") -}}
+{{- $_ := set $certData "ca_crt" (index $prevSecret.data "ca.crt") -}}
+{{- end -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "requeueip.fullname" . }}-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig: 
+    service:
+      name: {{ include "requeueip.fullname" . }}-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-requeueip-io-v1-subnet
+      port: {{ .Values.webhookService.port }}
+    caBundle: {{ get $certData "ca_crt" }}
+  failurePolicy: Fail
+  name: subnet.requeueip.io
+  rules:
+  - apiGroups:
+    - requeueip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - subnets
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "requeueip.fullname" . }}-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig: 
+    service:
+      name: {{ include "requeueip.fullname" . }}-webhook
+      namespace: {{ .Release.Namespace }}
+      path: /validate-requeueip-io-v1-subnet
+      port: {{ .Values.webhookService.port }}
+    caBundle: {{ get $certData "ca_crt" }}
+  failurePolicy: Fail
+  name: subnet.requeueip.io
+  rules:
+  - apiGroups:
+    - requeueip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - subnets
+  sideEffects: None
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "requeueip.fullname" . }}-webhook-cert
+  namespace: {{ .Release.Namespace }}
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ get $certData "tls_crt"}}
+  tls.key: {{ get $certData "tls_key"}}
+  ca.crt: {{ get $certData "ca_crt"}}

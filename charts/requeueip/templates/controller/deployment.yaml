@@ -53,6 +53,9 @@ spec:
         - name: requeueip-controller-config
           mountPath: /etc/requeueip/
           readOnly: true
+        - name: webhook-cert
+          mountPath: /etc/requeueip/webhook
+          readOnly: true
       serviceAccountName: {{ include "requeueip.controller" . }}
       {{- with .Values.controller.imagePullSecrets }}
       imagePullSecrets:
@@ -62,3 +65,6 @@ spec:
       - name: requeueip-controller-config
         configMap:
           name: {{ include "requeueip.controller" . }}-config
+      - name: webhook-cert
+        secret:
+          secretName: {{ include "requeueip.fullname" . }}-webhook-cert

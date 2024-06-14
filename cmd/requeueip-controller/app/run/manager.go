@@ -35,6 +35,7 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/consts"
 	"github.com/iiiceoo/requeueip/pkg/controller"
 	"github.com/iiiceoo/requeueip/pkg/controller/workload"
+	rwebhook "github.com/iiiceoo/requeueip/pkg/webhook"
 )
 
 var scheme = runtime.NewScheme()
@@ -72,9 +73,8 @@ func run(ctx context.Context) error {
 
 	logger.Info("Create controller manager")
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Logger: logger,
-		Scheme: scheme,
-		// TODO(iiiceoo): Customize the quantity of each worker.
+		Logger:     logger,
+		Scheme:     scheme,
 		Controller: runtimeconfig.Controller{MaxConcurrentReconciles: arg.workers},
 		Metrics:    metricsserver.Options{BindAddress: arg.metricsAddr},
 		WebhookServer: webhook.NewServer(webhook.Options{
@@ -97,10 +97,15 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	// Set up Subnet controller.
+	// Set up Subnet controller and webhook.
 	if err := controller.NewSubnetReconciler(
 		mgr.GetClient(),
 	).SetupWithManager(mgr); err != nil {
+		return err
+	}
+	if err := rwebhook.NewSubnetWebhooker(
+		mgr.GetClient(),
+	).SetupWebhookWithManager(mgr); err != nil {
 		return err
 	}
 

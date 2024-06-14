@@ -1,16 +1,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "requeueip.controller" . }}-metrics
+  name: {{ include "requeueip.fullname" . }}-webhook
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "requeueip.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.metricsService.type }}
+  type: {{ .Values.webhookService.type }}
   selector:
     {{- include "requeueip.selectorLabels" . | nindent 4 }}
   ports:
-  - name: metrics
-    port: {{ .Values.metricsService.port }}
-    targetPort: metrics
+  - name: webhook
+    port: {{ .Values.webhookService.port }}
+    targetPort: webhook
     protocol: TCP
