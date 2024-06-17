@@ -67,6 +67,12 @@ type Route struct {
 	Gw  *string `json:"gw,omitempty"`
 }
 
+// CmdDelJSONRequestBody defines body for CmdDel for application/json ContentType.
+type CmdDelJSONRequestBody = DelArgs
+
+// CmdAddJSONRequestBody defines body for CmdAdd for application/json ContentType.
+type CmdAddJSONRequestBody = AddArgs
+
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
 
@@ -143,11 +149,15 @@ type ClientInterface interface {
 	// Health request
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CmdDel request
-	CmdDel(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CmdDelWithBody request with any body
+	CmdDelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CmdAdd request
-	CmdAdd(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CmdDel(ctx context.Context, body CmdDelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CmdAddWithBody request with any body
+	CmdAddWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CmdAdd(ctx context.Context, body CmdAddJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -162,8 +172,8 @@ func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 	return c.Client.Do(req)
 }
 
-func (c *Client) CmdDel(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCmdDelRequest(c.Server)
+func (c *Client) CmdDelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCmdDelRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -174,8 +184,32 @@ func (c *Client) CmdDel(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 	return c.Client.Do(req)
 }
 
-func (c *Client) CmdAdd(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCmdAddRequest(c.Server)
+func (c *Client) CmdDel(ctx context.Context, body CmdDelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCmdDelRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CmdAddWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCmdAddRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CmdAdd(ctx context.Context, body CmdAddJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCmdAddRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -213,8 +247,19 @@ func NewHealthRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCmdDelRequest generates requests for CmdDel
-func NewCmdDelRequest(server string) (*http.Request, error) {
+// NewCmdDelRequest calls the generic CmdDel builder with application/json body
+func NewCmdDelRequest(server string, body CmdDelJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCmdDelRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCmdDelRequestWithBody generates requests for CmdDel with any type of body
+func NewCmdDelRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -232,16 +277,29 @@ func NewCmdDelRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
 
-// NewCmdAddRequest generates requests for CmdAdd
-func NewCmdAddRequest(server string) (*http.Request, error) {
+// NewCmdAddRequest calls the generic CmdAdd builder with application/json body
+func NewCmdAddRequest(server string, body CmdAddJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCmdAddRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCmdAddRequestWithBody generates requests for CmdAdd with any type of body
+func NewCmdAddRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -259,10 +317,12 @@ func NewCmdAddRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -313,11 +373,15 @@ type ClientWithResponsesInterface interface {
 	// HealthWithResponse request
 	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResponse, error)
 
-	// CmdDelWithResponse request
-	CmdDelWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CmdDelResponse, error)
+	// CmdDelWithBodyWithResponse request with any body
+	CmdDelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CmdDelResponse, error)
 
-	// CmdAddWithResponse request
-	CmdAddWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CmdAddResponse, error)
+	CmdDelWithResponse(ctx context.Context, body CmdDelJSONRequestBody, reqEditors ...RequestEditorFn) (*CmdDelResponse, error)
+
+	// CmdAddWithBodyWithResponse request with any body
+	CmdAddWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CmdAddResponse, error)
+
+	CmdAddWithResponse(ctx context.Context, body CmdAddJSONRequestBody, reqEditors ...RequestEditorFn) (*CmdAddResponse, error)
 }
 
 type HealthResponse struct {
@@ -395,18 +459,34 @@ func (c *ClientWithResponses) HealthWithResponse(ctx context.Context, reqEditors
 	return ParseHealthResponse(rsp)
 }
 
-// CmdDelWithResponse request returning *CmdDelResponse
-func (c *ClientWithResponses) CmdDelWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CmdDelResponse, error) {
-	rsp, err := c.CmdDel(ctx, reqEditors...)
+// CmdDelWithBodyWithResponse request with arbitrary body returning *CmdDelResponse
+func (c *ClientWithResponses) CmdDelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CmdDelResponse, error) {
+	rsp, err := c.CmdDelWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCmdDelResponse(rsp)
 }
 
-// CmdAddWithResponse request returning *CmdAddResponse
-func (c *ClientWithResponses) CmdAddWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CmdAddResponse, error) {
-	rsp, err := c.CmdAdd(ctx, reqEditors...)
+func (c *ClientWithResponses) CmdDelWithResponse(ctx context.Context, body CmdDelJSONRequestBody, reqEditors ...RequestEditorFn) (*CmdDelResponse, error) {
+	rsp, err := c.CmdDel(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCmdDelResponse(rsp)
+}
+
+// CmdAddWithBodyWithResponse request with arbitrary body returning *CmdAddResponse
+func (c *ClientWithResponses) CmdAddWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CmdAddResponse, error) {
+	rsp, err := c.CmdAddWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCmdAddResponse(rsp)
+}
+
+func (c *ClientWithResponses) CmdAddWithResponse(ctx context.Context, body CmdAddJSONRequestBody, reqEditors ...RequestEditorFn) (*CmdAddResponse, error) {
+	rsp, err := c.CmdAdd(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -693,6 +773,7 @@ func (response Health200Response) VisitHealthResponse(w http.ResponseWriter) err
 }
 
 type CmdDelRequestObject struct {
+	Body *CmdDelJSONRequestBody
 }
 
 type CmdDelResponseObject interface {
@@ -720,6 +801,7 @@ func (response CmdDeldefaultJSONResponse) VisitCmdDelResponse(w http.ResponseWri
 }
 
 type CmdAddRequestObject struct {
+	Body *CmdAddJSONRequestBody
 }
 
 type CmdAddResponseObject interface {
@@ -817,6 +899,13 @@ func (sh *strictHandler) Health(w http.ResponseWriter, r *http.Request) {
 func (sh *strictHandler) CmdDel(w http.ResponseWriter, r *http.Request) {
 	var request CmdDelRequestObject
 
+	var body CmdDelJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.CmdDel(ctx, request.(CmdDelRequestObject))
 	}
@@ -841,6 +930,13 @@ func (sh *strictHandler) CmdDel(w http.ResponseWriter, r *http.Request) {
 func (sh *strictHandler) CmdAdd(w http.ResponseWriter, r *http.Request) {
 	var request CmdAddRequestObject
 
+	var body CmdAddJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.CmdAdd(ctx, request.(CmdAddRequestObject))
 	}
@@ -864,18 +960,18 @@ func (sh *strictHandler) CmdAdd(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9xWTW/jNhD9K8K0R1V005tuhpOiBgojSA49BDlMxLHMVCLZGSquYei/F6TkOI7VdQLs",
-	"Aou9ieZ8vHkz8+g9VK71zpINAuUepNpQi+lzrvWc6/Tp2XniYCidKmcDGku8vI7HsPMEJUhgY2voczDr",
-	"FbY0eeWdvnQnHqspgz4Hpn86w6ShfDgB8ZryXZBjvsf8EM49PVMVYr7r1f15bdq1aOwkPhvjEr8QJ0sT",
-	"qJVJw/EHZMZdPDsfjLOfdBJCrjaf8XlH0Fu4k+VT80O394bZ8SSS5e3C2bWpz0tHrZlkmuwaA21xdxn6",
-	"IcgUqDuSrgkTYzeMx89MayjhJ3VcSjVupIrjGtn3p4P0JZfXQifmi10X6OOh7qL5xZmL4CbLTt7nVUuY",
-	"pnp7meXoe54qWhm7dik6ScUm7R6U8Bej98TZ2nG2WC2zGIskSIZWZ0zinRWSAnJoTEVWElybhhnmHqsN",
-	"ZVfFDHLouIESNiF4KZXabrcFpuvCca1GX1F/Lhc3q/ubX66KWbEJbZOoM6GJ4e5i6o6WtxEI5BBXdAD5",
-	"azErZoNkkEVvoITf0k85eAybRJraEDYhKUNNib9IKcYylxpK+GO4jmyNRUWbq9nsnJMjEI3UOpsZyYbo",
-	"uyJy2eegxnnT1NDQwtNsi1ZfU5PwMbYUkjg+7CFqKDw5vYP8wCJGtXnbxMAd5eOLc3H6R7Xq+8ePVHbf",
-	"VRWJrLum2WVMDaGQzpa32bicsdN9DprWOO5jFByy6RO9b0yValTP4uzxXbyEctCcRNwpnt/RNKSz4A5g",
-	"3mPpk0JKmGR4rvW3Z/jw3P8vw1+FoVEAJyg6aRmKmNp+Jy1DkdrY84716Zke/xA87N8oQ6lUZ82/pXpB",
-	"VtxZxcOmGV+Iq/6G/rH/LwAA//+o0evqeQkAAA==",
+	"H4sIAAAAAAAC/9xWT2/bPgz9KgZ/v6NnZd3NtyztsABDULSHHYoeNIux1dmSRsrNgsLffZDsNE0jLC3Q",
+	"AcNukcU/j4+PVB6gsp2zBo1nKB+AqwY7GX/OlZpTHX86sg7Ja4ynyhovtUFanoej3zqEEtiTNjUMOej1",
+	"SnaYvHJWnbpjJ6uUwZAD4Y9eEyoobw5APKZ8FmSf7zbfhbPf7rDyId/56vq4NmU7qU0Snwlxke6RoqX2",
+	"2HHScPogieQ2nK3z2ppXOjFKqprX+Dwj6CncZPnY/tPtvSCylESyvFxYs9b1celSKUJOk11Ljxu5PQ19",
+	"FyQF6gq5b31CdqM8/idcQwn/if1QimkiRZBrYN8dCul3Lo+FJvRFtvf48lBXwfyk5gK4ZNnR+7hq9mmq",
+	"N6dZDr7HqYKVNmsboyNXpOPsQQlfSTqHlK0tZYvVMguxkD1n0qiMkJ01jFxADq2u0HCEa6KYYe5k1WB2",
+	"Vswgh55aKKHx3nEpxGazKWS8LizVYvJl8WW5uFhdX7w7K2ZF47s2Uqd9G8JdhdQ9Li8DEMghjOgI8n0x",
+	"K2bjykAjnYYSPsRPOTjpm0iaaFC2Pm6GGiN/gVIZylwqKOHzeB3YmooKNmez2TEneyBKYmdNpjkbo2+L",
+	"wOWQg5j0prDFsYWH2RadOscWxt4g+49WbXdLBE2EJ51rdRVdxB1bs39mTkp+WlHDYfM99Ti8pL7rvqqQ",
+	"ed237TYjbFEyqmx5mU0jGvo95KBwLaepfBPY4+aJoA/xfJK6RZV5uwPzHMsQ9yT7JM9zpf4Qz7uX/uU8",
+	"v0naaRkmiDponGTWtflLGieZa22O+zbEJ3v6c3Dz8GRLlEL0Rv8sxb0kQb0RNE6ddqIyumBbfYfhdvgV",
+	"AAD//6rFLQ+JCQAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

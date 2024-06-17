@@ -14,23 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package version
+package run
 
-import (
-	"github.com/spf13/cobra"
+import "github.com/containernetworking/cni/pkg/skel"
 
-	"github.com/iiiceoo/requeueip/internal/version"
-)
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Display the version of RequeueIP IPAM CNI.",
-	Run: func(cmd *cobra.Command, args []string) {
-		text, _ := version.Get().Text()
-		cmd.Println(text)
-	},
-}
-
-func VersionCmd() *cobra.Command {
-	return versionCmd
+func CmdDel(args *skel.CmdArgs) (err error) {
+	return nil
 }

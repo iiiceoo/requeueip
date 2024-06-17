@@ -16,8 +16,21 @@ limitations under the License.
 
 package main
 
-import "github.com/iiiceoo/requeueip/cmd/requeueip/app"
+import (
+	"github.com/containernetworking/cni/pkg/skel"
+	"github.com/containernetworking/cni/pkg/version"
+
+	"github.com/iiiceoo/requeueip/cmd/requeueip/run"
+	rversion "github.com/iiiceoo/requeueip/internal/version"
+)
+
+// The minimum CNI spec version supported by RequesteIP IPAM CNI.
+const min = "0.0.3"
 
 func main() {
-	app.Excute()
+	text, _ := rversion.Get().Text()
+	skel.PluginMainFuncs(skel.CNIFuncs{
+		Add: run.CmdAdd,
+		Del: run.CmdDel,
+	}, version.VersionsStartingFrom(min), text)
 }

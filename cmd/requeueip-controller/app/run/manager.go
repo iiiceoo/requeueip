@@ -46,9 +46,15 @@ func init() {
 }
 
 func run(ctx context.Context) error {
-	zc := zap.NewDevelopmentConfig()
-	zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-arg.v))
-	zc.DisableStacktrace = true
+	zc := zap.Config{
+		Level:             zap.NewAtomicLevelAt(zapcore.Level(-arg.v)),
+		Development:       false,
+		Encoding:          "console",
+		EncoderConfig:     zap.NewProductionEncoderConfig(),
+		DisableStacktrace: true,
+		OutputPaths:       []string{"stderr"},
+		ErrorOutputPaths:  []string{"stderr"},
+	}
 	z, err := zc.Build()
 	if err != nil {
 		return err

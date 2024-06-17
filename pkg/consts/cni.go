@@ -14,29 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package app
+package consts
 
-import (
-	"os"
-	"path/filepath"
-
-	"github.com/spf13/cobra"
-
-	"github.com/iiiceoo/requeueip/cmd/requeueip/app/version"
+const (
+	CNILogPath        = "/var/log/requeueip/cni.log"
+	CNIUnixSocketPath = "/var/run/requeueip/cni.sock"
 )
-
-var bin = filepath.Base(os.Args[0])
-
-var rootCmd = &cobra.Command{
-	Use: bin,
-}
-
-func Excute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
-}
-
-func init() {
-	rootCmd.AddCommand(version.VersionCmd())
-}
