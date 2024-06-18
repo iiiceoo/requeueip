@@ -4,4 +4,4 @@ metadata:
   name: {{ include "requeueip.controller" . }}-config
   namespace: {{ .Release.Namespace }}
 data:
-  requeueip-conf.yaml: |
+  controller.yaml: |

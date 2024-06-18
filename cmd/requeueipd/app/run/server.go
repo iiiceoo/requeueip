@@ -18,6 +18,10 @@ package run
 
 import (
 	"context"
+	"net"
+	"net/http"
+	"os"
+	"time"
 
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
@@ -26,16 +30,10 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	runtimeconfig "sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
-	"github.com/iiiceoo/requeueip/pkg/consts"
-	"github.com/iiiceoo/requeueip/pkg/controller"
-	"github.com/iiiceoo/requeueip/pkg/controller/workload"
-	rwebhook "github.com/iiiceoo/requeueip/pkg/webhook"
+	v1 "github.com/iiiceoo/requeueip/oapi/v1"
 )
 
 var scheme = runtime.NewScheme()
@@ -61,15 +59,12 @@ func run(ctx context.Context) error {
 	}
 	logger := zapr.NewLogger(z)
 
-	// In order to get logger from ctx in the callbacks of webhook.
-	ctrl.SetLogger(logger)
-
 	// TODO(iiiceoo): Set up Pyroscope client (push mode).
 	if arg.pyroscopeAddr != "" {
 		logger.Info("Start Pyroscope profiler", "mode", "push", "server", arg.pyroscopeAddr)
 	}
 
-	logger.Info("Load RequeueIP controller config", "file", arg.file)
+	logger.Info("Load RequeueIP daemon config", "file", arg.file)
 	if err := config.load(arg.file); err != nil {
 		return err
 	}
@@ -79,56 +74,10 @@ func run(ctx context.Context) error {
 
 	logger.Info("Create controller-runtime manager")
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Logger:     logger,
-		Scheme:     scheme,
-		Controller: runtimeconfig.Controller{MaxConcurrentReconciles: arg.workers},
-		Metrics:    metricsserver.Options{BindAddress: arg.metricsAddr},
-		WebhookServer: webhook.NewServer(webhook.Options{
-			Host:    arg.webhookHost,
-			Port:    arg.webhookPort,
-			CertDir: arg.webhookCertDir,
-		}),
+		Logger:                 logger,
+		Scheme:                 scheme,
 		HealthProbeBindAddress: arg.probeAddr,
-		LeaderElection:         true,
-		LeaderElectionID:       consts.APP,
 	})
-	if err != nil {
-		return err
-	}
-
-	// Set up IPPool controller.
-	if err := controller.NewIPPoolReconciler(
-		mgr.GetClient(),
-	).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	// Set up Subnet controller and webhook.
-	if err := controller.NewSubnetReconciler(
-		mgr.GetClient(),
-	).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := rwebhook.NewSubnetWebhooker(
-		mgr.GetClient(),
-	).SetupWebhookWithManager(mgr); err != nil {
-		return err
-	}
-
-	// Set up IPPoolClaim controller.
-	if err := controller.NewIPPoolClaimReconciler(
-		mgr.GetClient(),
-		mgr.GetAPIReader(),
-	).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	// Set up workload controllers.
-	if err := workload.NewWorkloadReconciler(
-		mgr.GetClient(),
-	).SetupWithManager(mgr); err != nil {
-		return err
-	}
 
 	// Add liveness and readiness probe endpoint.
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -137,7 +86,46 @@ func run(ctx context.Context) error {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		return err
 	}
-	logger.Info("Start controller-runtime manager")
 
-	return mgr.Start(ctx)
+	logger.V(1).Info("Clean Unix socket", "path", arg.unixSocketPath)
+	if err := os.RemoveAll(arg.unixSocketPath); err != nil {
+		return err
+	}
+
+	logger.Info("Create IPAM HTTP Unix server")
+	server := &http.Server{
+		Handler: v1.HandlerWithOptions(nil, v1.GorillaServerOptions{}),
+	}
+
+	listener, err := net.Listen("unix", arg.unixSocketPath)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	errCh := make(chan error, 2)
+	go func() {
+		logger.Info("Start controller-runtime manager")
+		if err := mgr.Start(ctx); err != nil {
+			errCh <- err
+		}
+	}()
+
+	go func() {
+		logger.Info("Start IPAM HTTP Unix server", "socket", arg.unixSocketPath)
+		if err := server.Serve(listener); err != nil {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		// The DeletionGracePeriodSeconds of Pod is generally 30s.
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		return server.Shutdown(shutdownCtx)
+	case err := <-errCh:
+		return err
+	}
 }

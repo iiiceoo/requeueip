@@ -14,31 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package app
+package run
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/spf13/cobra"
-
-	"github.com/iiiceoo/requeueip/cmd/requeueipd/app/run"
-	"github.com/iiiceoo/requeueip/cmd/requeueipd/app/version"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var bin = filepath.Base(os.Args[0])
-
-var rootCmd = &cobra.Command{
-	Use: bin,
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run RequeueIP daemon.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return run(ctrl.SetupSignalHandler())
+	},
 }
 
-func Excute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
-}
-
-func init() {
-	rootCmd.AddCommand(version.VersionCmd())
-	rootCmd.AddCommand(run.RunCmd())
+func RunCmd() *cobra.Command {
+	return runCmd
 }

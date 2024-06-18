@@ -31,7 +31,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	v1 "github.com/iiiceoo/requeueip/oapi/v1"
-	"github.com/iiiceoo/requeueip/pkg/consts"
 )
 
 func CmdAdd(args *skel.CmdArgs) (err error) {
@@ -75,7 +74,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	result, err := assign(ctx, args, &envs)
+	result, err := assign(ctx, args, &envs, ipamConf)
 	if err != nil {
 		logger.Error(nil, err.Error())
 		return err
@@ -85,9 +84,8 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	return types.PrintResult(result, confVersion)
 }
 
-func assign(ctx context.Context, args *skel.CmdArgs, envs *IPAMEnvArgs) (*current.Result, error) {
-	server := "http://unix:" + consts.CNIUnixSocketPath
-	client, err := v1.NewClientWithResponses(server)
+func assign(ctx context.Context, args *skel.CmdArgs, envs *IPAMEnvArgs, ipamConfig *IPAMConfig) (*current.Result, error) {
+	client, err := newUnixClient(ipamConfig.UnixSocketPath)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +114,7 @@ func assign(ctx context.Context, args *skel.CmdArgs, envs *IPAMEnvArgs) (*curren
 		CNIVersion: current.ImplementedSpecVersion,
 	}
 
-	// TODO(xueziqian550): Implement DNS and Routes.
+	// TODO(iiiceoo): Implement DNS and Routes.
 	for _, c := range resp.JSON200.Ips {
 		ip, ipNet, err := net.ParseCIDR(c.Address)
 		if err != nil {
@@ -124,9 +122,24 @@ func assign(ctx context.Context, args *skel.CmdArgs, envs *IPAMEnvArgs) (*curren
 		}
 		result.IPs = append(result.IPs, &current.IPConfig{
 			Address: net.IPNet{IP: ip, Mask: ipNet.Mask},
-			// TODO(xueziqian550): Implement gateway.
+			// TODO(iiiceoo): Implement gateway.
 		})
 	}
 
 	return result, nil
+}
+
+func newUnixClient(socketPath string) (*v1.ClientWithResponses, error) {
+	dialer := func(ctx context.Context, network, address string) (net.Conn, error) {
+		d := &net.Dialer{}
+		return d.DialContext(ctx, "unix", socketPath)
+	}
+	transport := &http.Transport{
+		DialContext: dialer,
+	}
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	return v1.NewClientWithResponses("http://unix:/", v1.WithHTTPClient(client))
 }

@@ -43,7 +43,7 @@ func (ca *controllerArg) String() string {
 
 func init() {
 	runCmd.Flags().Int8Var(&arg.v, "v", 0, "Number for the log level verbosity.")
-	runCmd.Flags().StringVar(&arg.file, "config", "/etc/requeueip/requeueip-conf.yaml", "Path to config file.")
+	runCmd.Flags().StringVar(&arg.file, "config", "/etc/requeueip/controller.yaml", "Path to config file.")
 	runCmd.Flags().StringVar(&arg.pyroscopeAddr, "pyroscope-address", "", "The address where the Pyroscope server runs (push mode).")
 	runCmd.Flags().IntVar(&arg.workers, "workers", 3, "Maximum number of concurrent rconciles that each controller can run.")
 	runCmd.Flags().StringVar(&arg.probeAddr, "health-probe-address", ":8081", "The address that probe endpoint binds to.")

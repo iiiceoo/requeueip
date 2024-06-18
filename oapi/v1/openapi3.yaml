@@ -7,7 +7,7 @@ info:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 servers:
-  - url: http://unix:/var/run/requeueip/cni.sock
+  - url: http://unix:/
 paths:
   /health:
     get:
