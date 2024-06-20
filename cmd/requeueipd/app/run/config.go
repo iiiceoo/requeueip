@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iiiceoo/requeueip/pkg/consts"
 	"gopkg.in/yaml.v2"
+
+	"github.com/iiiceoo/requeueip/pkg/consts"
 )
 
 var arg = new(daemonArg)
@@ -43,7 +44,10 @@ func init() {
 	runCmd.Flags().StringVar(&arg.file, "config", "/etc/requeueip/daemon.yaml", "Path to config file.")
 	runCmd.Flags().StringVar(&arg.pyroscopeAddr, "pyroscope-address", "", "The address where the Pyroscope server runs (push mode).")
 	runCmd.Flags().StringVar(&arg.probeAddr, "health-probe-address", ":8081", "The address that probe endpoint binds to.")
-	runCmd.Flags().StringVar(&arg.unixSocketPath, "socket", consts.CNIUnixSocketPath, "The Unix socket path where the RequeueIP daemon listens.")
+	runCmd.Flags().StringVar(
+		&arg.unixSocketPath, "socket", consts.CNIUnixSocketPath,
+		"The Unix socket path where the RequeueIP daemon listens.",
+	)
 }
 
 var config = new(daeminConfig)

@@ -30,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -115,6 +114,9 @@ func (r *ippoolClaimReconciler) getOwnerMetadata(ctx context.Context, object cli
 }
 
 func (r *ippoolClaimReconciler) getOrMarkIPPool(ctx context.Context, claim *requeueipv1.IPPoolClaim) (*requeueipv1.IPPool, error) {
+	// Do not use IPPool in cache as it may cause meaningless conflicts when
+	// updating IPPool later. In fact, when IPPool is not cached, it can be
+	// patched instead of updated.
 	exist := true
 	var rp requeueipv1.IPPool
 	if err := r.reader.Get(ctx, types.NamespacedName{
@@ -127,14 +129,8 @@ func (r *ippoolClaimReconciler) getOrMarkIPPool(ctx context.Context, claim *requ
 		exist = false
 	}
 
-	// The workload has changed the Subnets it expects to assign IP addresses to.
 	if exist {
-		if slices.Contains(claim.Spec.Subnets, rp.Spec.Subnet) {
-			return &rp, nil
-		}
-		if err := r.client.Delete(ctx, &rp); err != nil {
-			return nil, err
-		}
+		return &rp, nil
 	}
 
 	subnet, err := r.selectSubnet(ctx, claim)
@@ -146,10 +142,14 @@ func (r *ippoolClaimReconciler) getOrMarkIPPool(ctx context.Context, claim *requ
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      claim.Name,
 			Namespace: claim.Namespace,
-			Labels:    map[string]string{consts.LabelRefSubnet: subnet.Name},
+			Labels: map[string]string{
+				consts.LabelIPVersion:      claim.Spec.Version,
+				consts.LabelRefSubnet:      subnet.Name,
+				consts.LabelRefWorkloadUID: string(metav1.GetControllerOf(claim).UID),
+			},
 		},
 		Spec: requeueipv1.IPPoolSpec{
-			Version: net.IPv4,
+			Version: claim.Spec.Version,
 			Subnet:  subnet.Name,
 			Ranges:  []string{},
 		},
@@ -256,6 +256,7 @@ func (r *ippoolClaimReconciler) scaleDown(ctx context.Context, subnet *requeueip
 			consts.LabelRefNamespace: pool.Namespace,
 			consts.LabelRefIPPool:    pool.Name,
 		},
+		client.UnsafeDisableDeepCopy,
 	); err != nil {
 		return err
 	}
@@ -284,6 +285,7 @@ func (r *ippoolClaimReconciler) scaleUp(ctx context.Context, subnet *requeueipv1
 			consts.LabelRefNamespace: pool.Namespace,
 			consts.LabelRefIPPool:    pool.Name,
 		},
+		client.UnsafeDisableDeepCopy,
 	); err != nil {
 		return err
 	}
@@ -388,6 +390,7 @@ func (r *ippoolClaimReconciler) claimIPBlocks(
 			blockCh <- block
 		}()
 	}
+
 	wg.Wait()
 	close(errCh)
 	close(blockCh)
@@ -436,7 +439,7 @@ func (r *ippoolClaimReconciler) claimIPBlock(
 			block = iter.Next()
 		}
 
-		rb.SetName(net.CIDRStringToName(block.String()))
+		rb.Name = net.CIDRStringToName(block.String())
 		if err := r.client.Create(ctx, rb); err != nil {
 			// TODO(iiiceoo): Log.
 			return nil, err

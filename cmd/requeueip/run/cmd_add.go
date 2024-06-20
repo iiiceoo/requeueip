@@ -18,6 +18,7 @@ package run
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -30,13 +31,17 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	v1 "github.com/iiiceoo/requeueip/oapi/v1"
+	oapiv1 "github.com/iiiceoo/requeueip/oapi/v1"
 )
 
 func CmdAdd(args *skel.CmdArgs) (err error) {
 	ipamConf, confVersion, err := LoadIPAMConfig(args.StdinData, args.Args)
 	if err != nil {
 		return fmt.Errorf("failed to load IPAM config: %v", err)
+	}
+
+	if !*ipamConf.IPv4 && !*ipamConf.IPv6 {
+		return errors.New("both IPv4 and IPv6 are disabled")
 	}
 
 	zc := zap.Config{
@@ -74,7 +79,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	result, err := assign(ctx, args, &envs, ipamConf)
+	result, err := assign(ctx, &envs, ipamConf)
 	if err != nil {
 		logger.Error(nil, err.Error())
 		return err
@@ -84,7 +89,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	return types.PrintResult(result, confVersion)
 }
 
-func assign(ctx context.Context, args *skel.CmdArgs, envs *IPAMEnvArgs, ipamConfig *IPAMConfig) (*current.Result, error) {
+func assign(ctx context.Context, envs *IPAMEnvArgs, ipamConfig *IPAMConfig) (*current.Result, error) {
 	client, err := newUnixClient(ipamConfig.UnixSocketPath)
 	if err != nil {
 		return nil, err
@@ -92,15 +97,15 @@ func assign(ctx context.Context, args *skel.CmdArgs, envs *IPAMEnvArgs, ipamConf
 
 	// Send health check.
 	if _, err := client.HealthWithResponse(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("RequeueIP daemon is unhealthy: %v", err)
 	}
 
 	// Send IPAM request.
-	resp, err := client.CmdAddWithResponse(ctx, v1.CmdAddJSONRequestBody{
+	resp, err := client.CmdAddWithResponse(ctx, oapiv1.CmdAddJSONRequestBody{
+		Ipv4:         *ipamConfig.IPv4,
+		Ipv6:         *ipamConfig.IPv6,
 		PodNamespace: string(envs.PodNamespace),
 		PodName:      string(envs.PodName),
-		ContainerID:  args.ContainerID,
-		IfName:       args.IfName,
 	})
 	if err != nil {
 		return nil, err
@@ -129,7 +134,7 @@ func assign(ctx context.Context, args *skel.CmdArgs, envs *IPAMEnvArgs, ipamConf
 	return result, nil
 }
 
-func newUnixClient(socketPath string) (*v1.ClientWithResponses, error) {
+func newUnixClient(socketPath string) (*oapiv1.ClientWithResponses, error) {
 	dialer := func(ctx context.Context, network, address string) (net.Conn, error) {
 		d := &net.Dialer{}
 		return d.DialContext(ctx, "unix", socketPath)
@@ -141,5 +146,5 @@ func newUnixClient(socketPath string) (*v1.ClientWithResponses, error) {
 		Transport: transport,
 	}
 
-	return v1.NewClientWithResponses("http://unix:/", v1.WithHTTPClient(client))
+	return oapiv1.NewClientWithResponses("http://unix:/", oapiv1.WithHTTPClient(client))
 }

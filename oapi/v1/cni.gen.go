@@ -23,8 +23,8 @@ import (
 
 // AddArgs defines model for AddArgs.
 type AddArgs struct {
-	ContainerID  string `json:"containerID"`
-	IfName       string `json:"ifName"`
+	Ipv4         bool   `json:"ipv4"`
+	Ipv6         bool   `json:"ipv6"`
 	PodName      string `json:"podName"`
 	PodNamespace string `json:"podNamespace"`
 }
@@ -35,14 +35,6 @@ type DNS struct {
 	Nameservers []string  `json:"nameservers"`
 	Options     *[]string `json:"options,omitempty"`
 	Search      *[]string `json:"search,omitempty"`
-}
-
-// DelArgs defines model for DelArgs.
-type DelArgs struct {
-	ContainerID  string `json:"containerID"`
-	IfName       string `json:"ifName"`
-	PodName      string `json:"podName"`
-	PodNamespace string `json:"podNamespace"`
 }
 
 // Error defines model for Error.
@@ -66,9 +58,6 @@ type Route struct {
 	Dst string  `json:"dst"`
 	Gw  *string `json:"gw,omitempty"`
 }
-
-// CmdDelJSONRequestBody defines body for CmdDel for application/json ContentType.
-type CmdDelJSONRequestBody = DelArgs
 
 // CmdAddJSONRequestBody defines body for CmdAdd for application/json ContentType.
 type CmdAddJSONRequestBody = AddArgs
@@ -149,11 +138,6 @@ type ClientInterface interface {
 	// Health request
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CmdDelWithBody request with any body
-	CmdDelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CmdDel(ctx context.Context, body CmdDelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CmdAddWithBody request with any body
 	CmdAddWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -162,30 +146,6 @@ type ClientInterface interface {
 
 func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewHealthRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CmdDelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCmdDelRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CmdDel(ctx context.Context, body CmdDelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCmdDelRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -243,46 +203,6 @@ func NewHealthRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewCmdDelRequest calls the generic CmdDel builder with application/json body
-func NewCmdDelRequest(server string, body CmdDelJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCmdDelRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCmdDelRequestWithBody generates requests for CmdDel with any type of body
-func NewCmdDelRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/ips")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -373,11 +293,6 @@ type ClientWithResponsesInterface interface {
 	// HealthWithResponse request
 	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResponse, error)
 
-	// CmdDelWithBodyWithResponse request with any body
-	CmdDelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CmdDelResponse, error)
-
-	CmdDelWithResponse(ctx context.Context, body CmdDelJSONRequestBody, reqEditors ...RequestEditorFn) (*CmdDelResponse, error)
-
 	// CmdAddWithBodyWithResponse request with any body
 	CmdAddWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CmdAddResponse, error)
 
@@ -399,28 +314,6 @@ func (r HealthResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r HealthResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CmdDelResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSONDefault  *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r CmdDelResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CmdDelResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -459,23 +352,6 @@ func (c *ClientWithResponses) HealthWithResponse(ctx context.Context, reqEditors
 	return ParseHealthResponse(rsp)
 }
 
-// CmdDelWithBodyWithResponse request with arbitrary body returning *CmdDelResponse
-func (c *ClientWithResponses) CmdDelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CmdDelResponse, error) {
-	rsp, err := c.CmdDelWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCmdDelResponse(rsp)
-}
-
-func (c *ClientWithResponses) CmdDelWithResponse(ctx context.Context, body CmdDelJSONRequestBody, reqEditors ...RequestEditorFn) (*CmdDelResponse, error) {
-	rsp, err := c.CmdDel(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCmdDelResponse(rsp)
-}
-
 // CmdAddWithBodyWithResponse request with arbitrary body returning *CmdAddResponse
 func (c *ClientWithResponses) CmdAddWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CmdAddResponse, error) {
 	rsp, err := c.CmdAddWithBody(ctx, contentType, body, reqEditors...)
@@ -504,32 +380,6 @@ func ParseHealthResponse(rsp *http.Response) (*HealthResponse, error) {
 	response := &HealthResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
-	}
-
-	return response, nil
-}
-
-// ParseCmdDelResponse parses an HTTP response from a CmdDelWithResponse call
-func ParseCmdDelResponse(rsp *http.Response) (*CmdDelResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CmdDelResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
 	}
 
 	return response, nil
@@ -574,9 +424,6 @@ type ServerInterface interface {
 	// (GET /health)
 	Health(w http.ResponseWriter, r *http.Request)
 
-	// (DELETE /ips)
-	CmdDel(w http.ResponseWriter, r *http.Request)
-
 	// (POST /ips)
 	CmdAdd(w http.ResponseWriter, r *http.Request)
 }
@@ -596,21 +443,6 @@ func (siw *ServerInterfaceWrapper) Health(w http.ResponseWriter, r *http.Request
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Health(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// CmdDel operation middleware
-func (siw *ServerInterfaceWrapper) CmdDel(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CmdDel(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -750,8 +582,6 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 
 	r.HandleFunc(options.BaseURL+"/health", wrapper.Health).Methods("GET")
 
-	r.HandleFunc(options.BaseURL+"/ips", wrapper.CmdDel).Methods("DELETE")
-
 	r.HandleFunc(options.BaseURL+"/ips", wrapper.CmdAdd).Methods("POST")
 
 	return r
@@ -770,34 +600,6 @@ type Health200Response struct {
 func (response Health200Response) VisitHealthResponse(w http.ResponseWriter) error {
 	w.WriteHeader(200)
 	return nil
-}
-
-type CmdDelRequestObject struct {
-	Body *CmdDelJSONRequestBody
-}
-
-type CmdDelResponseObject interface {
-	VisitCmdDelResponse(w http.ResponseWriter) error
-}
-
-type CmdDel200Response struct {
-}
-
-func (response CmdDel200Response) VisitCmdDelResponse(w http.ResponseWriter) error {
-	w.WriteHeader(200)
-	return nil
-}
-
-type CmdDeldefaultJSONResponse struct {
-	Body       Error
-	StatusCode int
-}
-
-func (response CmdDeldefaultJSONResponse) VisitCmdDelResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type CmdAddRequestObject struct {
@@ -834,9 +636,6 @@ type StrictServerInterface interface {
 
 	// (GET /health)
 	Health(ctx context.Context, request HealthRequestObject) (HealthResponseObject, error)
-
-	// (DELETE /ips)
-	CmdDel(ctx context.Context, request CmdDelRequestObject) (CmdDelResponseObject, error)
 
 	// (POST /ips)
 	CmdAdd(ctx context.Context, request CmdAddRequestObject) (CmdAddResponseObject, error)
@@ -895,37 +694,6 @@ func (sh *strictHandler) Health(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// CmdDel operation middleware
-func (sh *strictHandler) CmdDel(w http.ResponseWriter, r *http.Request) {
-	var request CmdDelRequestObject
-
-	var body CmdDelJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CmdDel(ctx, request.(CmdDelRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CmdDel")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CmdDelResponseObject); ok {
-		if err := validResponse.VisitCmdDelResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // CmdAdd operation middleware
 func (sh *strictHandler) CmdAdd(w http.ResponseWriter, r *http.Request) {
 	var request CmdAddRequestObject
@@ -960,17 +728,17 @@ func (sh *strictHandler) CmdAdd(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9xWTW/bOBD9K8LsHrWSN3vTzeukqIHCCJJDD0EOrDiSGFAkO0PVNQL994KUHMcxUSdA",
-	"ChS9meJ8vHnzZuhHqG3vrEHjGapH4LrDXsSfSymX1MafjqxD8grjqbbGC2WQ1pfh6HcOoQL2pEwLYw6q",
-	"2Ygek1fOynN37ESdMhhzIPw6KEIJ1d0RiKeUL4Ic8t3n+3D2ywPWPuS73Nye1iZtL5RJ4jMhLtI3pGip",
-	"PPacNJw/CCKxC2frvLLmjU6MguruLT4vCHoON1k+6j+6vVdElpJI1tcraxrVnpYupCTkNNmt8LgVu/PQ",
-	"90FSoG6QB+0Tspvk8TdhAxX8VR6GspwnsgxyDey7YyH9zOWp0IS+yA4eXx/qJpif1VwAlyw7ep9WzT5N",
-	"9fY8y8H3NFWwUqaxMTpyTSrOHlTwmYRzSFljKVtt1lmIhew5E0ZmhOysYeQCctCqRsMRrolihqUTdYfZ",
-	"RbGAHAbSUEHnveOqLLfbbSHidWGpLWdfLj+tV1eb26t/LopF0fleR+qU1yHcTUg94Po6AIEcwohOIP8t",
-	"FsViWhlohFNQwX/xUw5O+C6SVnYotI+bocXIX6BUhDLXEir4OF0Htuaigs3FYnHKyQGIFNhbkynOpui7",
-	"InA55lDOepOocWrhcbZVLy9Rw9QbZP+/lbv9EkET4QnntKqjS/nA1hyembOSn1fUeNx8TwOOr6nvdqhr",
-	"ZG4GrXcZoUbBKLP1dTaPaOj3mIPERsxT+S6wp80TQR/j+SCURpl5uwfzEssY9yT7JM9LKX8Rz/uX/vU8",
-	"v0vaeRkmiDpqnGBWrflNGieYW2VO+zbGJ3v+c3D3+GxLVGU5GPW9KmG8H38EAAD//90EZh9vCQAA",
+	"H4sIAAAAAAAC/6xUTW/bMAz9Kwa3o2dl3bCDb1nWYQGGoGgPOxQ9qBZtq7AljZSbBYX/+yDZbdJGWFag",
+	"J39Qj3x8fNQDVLZ31qDxDOUDcNViL+PrUqklNfHVkXVIXmP80u7+c3j6nUMo4dbaDqWBMQ+RL+mIs2oj",
+	"ezwIsidtmoMYO1mlDow5EP4eNKGC8nqqPpd6gd2Xuckfs9jbO6x8KPNtc3Xci7K91CZJy4S8SPdIU9ce",
+	"e04enH9IIrkL39Z5bc0rQYySqvY1mBe6HNJNtX9OZCmZdn2xsqbWzbE6UilCTpNppMet3J0e2GOSFKlL",
+	"5KHzibFM8r0nrKGEd2JvUjE7VIRxRss9F/pfkKdGE/qTHTz+f6rLcPzkTAK5ZNsRfdw1+7TU29MqB+xx",
+	"qXBKm9rG7MgV6ehNKOEXSeeQstpSttqss5AL2XMmjcoI2VnDyAXk0OkKDUe6Jq4wLJ2sWszOigXkMFAH",
+	"JbTeOy6F2G63hYzhwlIjZiyLn+vV+ebq/MNZsSha33dROu27kO4ylB5wfRGIQA7BwhPJj8WiWEwrhUY6",
+	"DSV8ir9ycNK3UTTRoux83JwGo35BUhnaXCso4ccUDmrNTYUzZ4vFsSZ7Ikpib02mOZuy74qg5ZiDmP3m",
+	"LCdqrXq1VAqmySD7r1bFBams8WgiQDrX6SpCxB1bs790T1nu8T4en4/e04Bjurs3KTuvaKz6XK6roaqQ",
+	"uR66bpdJZt0YVNn6Ips3Ptgngmo5L/mbEJousgSf71J3qDJvA5lGm5dUpgk+XenXDwfeLYUYjP5TChhv",
+	"xr8BAAD//2VZa8IVBwAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

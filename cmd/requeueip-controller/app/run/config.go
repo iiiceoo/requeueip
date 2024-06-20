@@ -50,8 +50,10 @@ func init() {
 	runCmd.Flags().StringVar(&arg.metricsAddr, "metrics-address", ":8443", "The address that metrics endpoint binds to.")
 	runCmd.Flags().StringVar(&arg.webhookHost, "webhook-host", "", "The host that webhook endpoint binds to.")
 	runCmd.Flags().IntVar(&arg.webhookPort, "webhook-port", 9443, "The port that webhook endpoint listens on.")
-	runCmd.Flags().
-		StringVar(&arg.webhookCertDir, "webhook-cert-dir", "/etc/requeueip/webhook", "The directory that contains the server key and certificate for API Server and webhook TLS communication.")
+	runCmd.Flags().StringVar(
+		&arg.webhookCertDir, "webhook-cert-dir", "/etc/requeueip/webhook",
+		"The directory that contains the server key and certificate for API Server and webhook TLS communication.",
+	)
 }
 
 var config = new(controllerConfig)

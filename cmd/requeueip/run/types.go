@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/containernetworking/cni/pkg/types"
+	"k8s.io/utils/ptr"
 
 	"github.com/iiiceoo/requeueip/pkg/consts"
 )
@@ -34,8 +35,12 @@ type Net struct {
 }
 
 type IPAMConfig struct {
-	Name           string
-	Type           string `json:"type"`
+	Name string
+	Type string `json:"type"`
+
+	IPv4 *bool `json:"ipv4"`
+	IPv6 *bool `json:"ipv6"`
+
 	LogLevel       int8   `json:"logLevel"`
 	LogPath        string `json:"logPath"`
 	UnixSocketPath string `json:"unixSocketPath"`
@@ -60,6 +65,12 @@ func LoadIPAMConfig(bytes []byte, envArgs string) (*IPAMConfig, string, error) {
 		return nil, "", fmt.Errorf("IPAM config missing 'ipam' key")
 	}
 
+	if n.IPAM.IPv4 == nil {
+		n.IPAM.IPv4 = ptr.To(true)
+	}
+	if n.IPAM.IPv6 == nil {
+		n.IPAM.IPv6 = ptr.To(false)
+	}
 	if n.IPAM.LogPath == "" {
 		n.IPAM.LogPath = consts.CNILogPath
 	}

@@ -75,7 +75,12 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	var riList requeueipv1.IPList
-	if err := r.client.List(ctx, &riList, client.MatchingLabels{consts.LabelRefIPPool: rp.Name}); err != nil {
+	if err := r.client.List(
+		ctx,
+		&riList,
+		client.MatchingLabels{consts.LabelRefIPPool: rp.Name},
+		client.UnsafeDisableDeepCopy,
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 

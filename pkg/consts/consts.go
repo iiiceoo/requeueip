@@ -33,11 +33,15 @@ const (
 )
 
 const (
-	refPrefix         = "reference" + "." + RPrefix
-	LabelRefNamespace = refPrefix + "/" + "ns"
-	LabelRefSubnet    = refPrefix + "/" + "subnet"
-	LabelRefIPPool    = refPrefix + "/" + "ippool"
+	refPrefix           = "reference" + "." + RPrefix
+	LabelRefNamespace   = refPrefix + "/" + "ns"
+	LabelRefSubnet      = refPrefix + "/" + "subnet"
+	LabelRefIPPool      = refPrefix + "/" + "ippool"
+	LabelRefWorkloadUID = refPrefix + "/" + "workload-uid"
+	LabelRefPodUID      = refPrefix + "/" + "pod-uid"
 )
+
+const LabelIPVersion = RPrefix + "/" + "ip-version"
 
 const (
 	AnnoIPv4Subnets = RPrefix + "/" + "ipv4-subnets"

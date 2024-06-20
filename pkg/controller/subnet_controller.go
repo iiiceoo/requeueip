@@ -79,6 +79,7 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		&rpList,
 		client.MatchingLabels{consts.LabelRefSubnet: rn.Name},
 		client.Limit(1),
+		client.UnsafeDisableDeepCopy,
 	); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -90,7 +91,12 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	var rbList requeueipv1.IPBlockList
-	if err := r.client.List(ctx, &rbList, client.MatchingLabels{consts.LabelRefSubnet: rn.Name}); err != nil {
+	if err := r.client.List(
+		ctx,
+		&rbList,
+		client.MatchingLabels{consts.LabelRefSubnet: rn.Name},
+		client.UnsafeDisableDeepCopy,
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 

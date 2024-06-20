@@ -37,23 +37,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-    delete:
-      operationId: cmdDel
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DelArgs'
-        required: true
-      responses:
-        '200':
-          description: Successfully released IP addresses.
-        default:
-          description: Failed to release IP addresses.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 components:
   schemas:
     Error:
@@ -61,17 +44,17 @@ components:
     AddArgs:
       type: object
       properties:
-        containerID:
-          type: string
-        ifName:
-          type: string
+        ipv4:
+          type: boolean
+        ipv6:
+          type: boolean
         podNamespace:
           type: string
         podName:
           type: string
       required:
-      - containerID
-      - ifName
+      - ipv4
+      - ipv6
       - podNamespace
       - podName
     Result:
@@ -127,19 +110,3 @@ components:
             type: string
       required:
       - nameservers
-    DelArgs:
-      type: object
-      properties:
-        containerID:
-          type: string
-        ifName:
-          type: string
-        podNamespace:
-          type: string
-        podName:
-          type: string
-      required:
-      - containerID
-      - ifName
-      - podNamespace
-      - podName

@@ -104,7 +104,7 @@ func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolCla
 		return client.IgnoreAlreadyExists(c.client.Create(ctx, rpc))
 	}
 
-	if reflect.DeepEqual(rpc.Spec, *spec) {
+	if reflect.DeepEqual(&rpc.Spec, spec) {
 		return nil
 	}
 	rpc.Spec = *spec

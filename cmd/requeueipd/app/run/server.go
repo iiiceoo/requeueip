@@ -33,7 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
-	v1 "github.com/iiiceoo/requeueip/oapi/v1"
+	oapiv1 "github.com/iiiceoo/requeueip/oapi/v1"
+	"github.com/iiiceoo/requeueip/pkg/ipam"
 )
 
 var scheme = runtime.NewScheme()
@@ -78,6 +79,9 @@ func run(ctx context.Context) error {
 		Scheme:                 scheme,
 		HealthProbeBindAddress: arg.probeAddr,
 	})
+	if err != nil {
+		return err
+	}
 
 	// Add liveness and readiness probe endpoint.
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -94,7 +98,10 @@ func run(ctx context.Context) error {
 
 	logger.Info("Create IPAM HTTP Unix server")
 	server := &http.Server{
-		Handler: v1.HandlerWithOptions(nil, v1.GorillaServerOptions{}),
+		Handler: oapiv1.Handler(oapiv1.NewStrictHandler(ipam.New(
+			mgr.GetClient(),
+			mgr.GetAPIReader(),
+		), nil)),
 	}
 
 	listener, err := net.Listen("unix", arg.unixSocketPath)
