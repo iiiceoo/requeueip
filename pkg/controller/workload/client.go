@@ -22,11 +22,13 @@ import (
 	"hash/fnv"
 	"reflect"
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -46,6 +48,7 @@ func newRPCClient(c client.Client) *rpcClient {
 	}
 }
 
+// parseClaims parses Pod annotations as IPPoolClaim spec.
 func (c *rpcClient) parseClaims(ctx context.Context, metadata *metav1.ObjectMeta, replicas int32) ([]requeueipv1.IPPoolClaimSpec, error) {
 	v4Str := metadata.Annotations[consts.AnnoIPv4Subnets]
 	v6Str := metadata.Annotations[consts.AnnoIPv6Subnets]
@@ -60,6 +63,7 @@ func (c *rpcClient) parseClaims(ctx context.Context, metadata *metav1.ObjectMeta
 
 	v4Subnets := parseArray(v4Str)
 	v6Subnets := parseArray(v6Str)
+
 	var claims []requeueipv1.IPPoolClaimSpec
 	if len(v4Subnets) != 0 {
 		claims = append(claims, requeueipv1.IPPoolClaimSpec{
@@ -79,8 +83,45 @@ func (c *rpcClient) parseClaims(ctx context.Context, metadata *metav1.ObjectMeta
 	return claims, nil
 }
 
+// ensureClaims updates IPPoolClaims with specified specs, or creates them
+// if they do not exist.
+func (c *rpcClient) ensureClaims(ctx context.Context, specs []requeueipv1.IPPoolClaimSpec, object client.Object) error {
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(specs))
+	for i := 0; i < len(specs); i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := c.ensureClaim(ctx, &specs[i], object); err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	for err := range errCh {
+		errs = append(errs, err)
+	}
+	if len(errs) != 0 {
+		return utilerrors.NewAggregate(errs)
+	}
+
+	return nil
+}
+
+// ensureClaim updates IPPoolClaim with the specified spec, or creates it
+// if it does not exist.
 func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolClaimSpec, object client.Object) error {
-	name := object.GetName() + "-" + getUIDHash(spec.Version, string(object.GetUID()))
+	// version + wordload UID can uniquely identify an IPPoolClaim.
+	h := fnv.New32a()
+	id := fmt.Sprintf("%s-%s", spec.Version, object.GetUID())
+	h.Write([]byte(id))
+	name := fmt.Sprintf("%s-%s", object.GetName(), rand.SafeEncodeString(fmt.Sprint(h.Sum32())))
+
 	var rpc requeueipv1.IPPoolClaim
 	if err := c.client.Get(ctx, types.NamespacedName{
 		Namespace: object.GetNamespace(),
@@ -112,14 +153,7 @@ func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolCla
 	return c.client.Update(ctx, &rpc)
 }
 
-func getUIDHash(version, uid string) string {
-	id := fmt.Sprintf("%s-%s", uid, version)
-	h := fnv.New32a()
-	h.Write([]byte(id))
-
-	return rand.SafeEncodeString(fmt.Sprint(h.Sum32()))
-}
-
+// parseArray parses a comma-separated string into a slice.
 func parseArray(arrStr string) []string {
 	if arrStr == "" {
 		return nil

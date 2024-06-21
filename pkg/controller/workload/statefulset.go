@@ -66,14 +66,8 @@ func (r *statefulSetReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	claims, err := r.rpcClient.parseClaims(ctx, &sts.Spec.Template.ObjectMeta, *sts.Spec.Replicas)
 	if err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
-	for i := 0; i < len(claims); i++ {
-		if err := r.rpcClient.ensureClaim(ctx, &claims[i], &sts); err != nil {
-			return ctrl.Result{}, nil
-		}
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.rpcClient.ensureClaims(ctx, claims, &sts)
 }

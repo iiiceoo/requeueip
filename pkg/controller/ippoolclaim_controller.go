@@ -195,7 +195,7 @@ func (r *ippoolClaimReconciler) selectSubnet(ctx context.Context, claim *requeue
 		}
 	}
 
-	return nil, fmt.Errorf("no Subnets are available in %s: %w", claim.Spec.Subnets, errorInsufficientIPBlocks)
+	return nil, fmt.Errorf("no Subnets are available in %s: %w", claim.Spec.Subnets, errInsufficientIPBlocks)
 }
 
 func (r *ippoolClaimReconciler) scale(ctx context.Context, pool *requeueipv1.IPPool, replicas int) error {
@@ -316,7 +316,7 @@ func (r *ippoolClaimReconciler) scaleUp(ctx context.Context, subnet *requeueipv1
 	count := new(big.Int)
 	count.SetString(subnet.Status.BlockCount.Free, 10)
 	if count.Cmp(big.NewInt(int64(expect))) < 0 {
-		return fmt.Errorf("unable to scale up IPPool %s in Subnet %s: %w", pool.Name, subnet.Name, errorInsufficientIPBlocks)
+		return fmt.Errorf("unable to scale up IPPool %s in Subnet %s: %w", pool.Name, subnet.Name, errInsufficientIPBlocks)
 	}
 
 	free, err := iprange.Parse(subnet.Status.Free...)

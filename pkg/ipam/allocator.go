@@ -325,8 +325,8 @@ func (a *allocator) assignIPs(
 	errCh := make(chan error, count)
 	ipCh := make(chan *oapiv1.IPConfig, count)
 	for i := 0; i < count; i++ {
-		wg.Add(1)
 		i := i
+		wg.Add(1)
 		go func() {
 			ip, err := a.assignIP(ctx, pool, i, pod)
 			if err != nil {

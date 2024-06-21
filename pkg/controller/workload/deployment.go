@@ -66,14 +66,8 @@ func (r *deploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	claims, err := r.rpcClient.parseClaims(ctx, &deploy.Spec.Template.ObjectMeta, *deploy.Spec.Replicas)
 	if err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
-	for i := 0; i < len(claims); i++ {
-		if err := r.rpcClient.ensureClaim(ctx, &claims[i], &deploy); err != nil {
-			return ctrl.Result{}, nil
-		}
-	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.rpcClient.ensureClaims(ctx, claims, &deploy)
 }
