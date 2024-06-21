@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"reflect"
+	"strconv"
 
 	"github.com/iiiceoo/iprange"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,6 +75,16 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if !rp.DeletionTimestamp.IsZero() {
+		ok, err := r.cleanUpIPool(ctx, &rp)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if ok {
+			return ctrl.Result{}, nil
+		}
+	}
+
 	var riList requeueipv1.IPList
 	if err := r.client.List(
 		ctx,
@@ -82,27 +93,6 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		client.UnsafeDisableDeepCopy,
 	); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// Release the IPPool when no Pod is using it. This judgment may not be
-	// accurate because an empty workload also meets the above conditions, but
-	// the IPPool should not be released. There is a cost to getting the owner
-	// workload, and IPPool is an internal resource that doesn't take too many
-	// edge cases into account.
-	if len(riList.Items) == 0 && !rp.DeletionTimestamp.IsZero() {
-		if err := r.client.DeleteAllOf(
-			ctx,
-			&requeueipv1.IPBlock{},
-			client.MatchingLabels{
-				consts.LabelRefNamespace: rp.Namespace,
-				consts.LabelRefIPPool:    rp.Name,
-			},
-		); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		controllerutil.RemoveFinalizer(&rp, consts.RFinalizer)
-		return ctrl.Result{}, r.client.Update(ctx, &rp)
 	}
 
 	// Calculate the total, used, and available range of the IPPool.
@@ -132,4 +122,38 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	rp.Status = *status
 
 	return ctrl.Result{}, r.client.Status().Update(ctx, &rp)
+}
+
+// cleanUpIPool removes IPPool's finalizer when it is not referenced by any IP
+// and releases its corresponding IPBlocks.
+func (r *IPPoolReconciler) cleanUpIPool(ctx context.Context, pool *requeueipv1.IPPool) (bool, error) {
+	if pool.Status.Count == nil {
+		return false, nil
+	}
+
+	used, err := strconv.Atoi(pool.Status.Count.Used)
+	if err != nil {
+		return false, err
+	}
+	if used > 0 {
+		return false, nil
+	}
+
+	if err := r.client.DeleteAllOf(
+		ctx,
+		&requeueipv1.IPBlock{},
+		client.MatchingLabels{
+			consts.LabelRefNamespace: pool.Namespace,
+			consts.LabelRefIPPool:    pool.Name,
+		},
+	); err != nil {
+		return false, err
+	}
+
+	controllerutil.RemoveFinalizer(pool, consts.RFinalizer)
+	if err := r.client.Update(ctx, pool); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }

@@ -80,8 +80,8 @@ func (r *ippoolClaimReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	// To ensure that IPBlocks are always correctly recycled, it is necessary
-	// to create an empty IPPool before claiming IPBlocks.
+	// To ensure that IPBlocks are always correctly recycled, it is necessary to
+	// create an empty IPPool before claiming IPBlocks.
 	pool, err := r.getOrMarkIPPool(ctx, &claim)
 	if err != nil {
 		return ignoreRequeue(err)
@@ -176,8 +176,8 @@ func (r *ippoolClaimReconciler) selectSubnet(ctx context.Context, claim *requeue
 			return nil, err
 		}
 
-		// Do not skip the Subnet that is not ready, but try again later, respecting
-		// the order of candidate Subnets as much as possible.
+		// Do not skip the Subnet that is not ready, but try again later, respecting the
+		// order of candidate Subnets as much as possible.
 		if rn.Status.BlockCount == nil {
 			return nil, newErrorRequeue()
 		}
@@ -207,8 +207,8 @@ func (r *ippoolClaimReconciler) scale(ctx context.Context, pool *requeueipv1.IPP
 		return newErrorRequeue()
 	}
 
-	// Do not use .status.count.all as it may not have been set when IPPool
-	// first created.
+	// Do not use .status.count.all as it may not have been set when IPPool first
+	// created.
 	ranges, err := iprange.Parse(pool.Spec.Ranges...)
 	if err != nil {
 		return err
@@ -354,8 +354,8 @@ func (r *ippoolClaimReconciler) scaleUpWithinExistingIPBlocks(
 	old := pool.DeepCopy()
 	pool.Spec.Ranges = dr.Union(ranges).Strings()
 
-	// No other component attempts to update the IPPool spec, using patch to
-	// avoid conflicts.
+	// No other component attempts to update the IPPool spec, using patch to avoid
+	// conflicts.
 	return r.client.Patch(ctx, pool, client.MergeFrom(old))
 }
 
@@ -465,8 +465,8 @@ func (r *ippoolClaimReconciler) scaleUpWithinNewIPBlocks(
 	old := pool.DeepCopy()
 	pool.Spec.Ranges = ranges.Strings()
 
-	// No other component attempts to update the IPPool spec, using patch to
-	// avoid conflicts.
+	// No other component attempts to update the IPPool spec, using patch to avoid
+	// conflicts.
 	return r.client.Patch(ctx, pool, client.MergeFrom(old))
 }
 

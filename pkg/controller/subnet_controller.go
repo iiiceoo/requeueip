@@ -20,6 +20,7 @@ import (
 	"context"
 	"math/big"
 	"reflect"
+	"strconv"
 
 	"github.com/iiiceoo/iprange"
 	"k8s.io/apimachinery/pkg/types"
@@ -73,21 +74,15 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var rpList requeueipv1.IPPoolList
-	if err := r.client.List(
-		ctx,
-		&rpList,
-		client.MatchingLabels{consts.LabelRefSubnet: rn.Name},
-		client.Limit(1),
-		client.UnsafeDisableDeepCopy,
-	); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// Remove the Subnet when there is no workloads depend on it.
-	if len(rpList.Items) == 0 && !rn.DeletionTimestamp.IsZero() {
-		controllerutil.RemoveFinalizer(&rn, consts.RFinalizer)
-		return ctrl.Result{}, r.client.Update(ctx, &rn)
+	if !rn.DeletionTimestamp.IsZero() {
+		ok, err := r.cleanUpSubnet(ctx, &rn)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if ok {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	var rbList requeueipv1.IPBlockList
@@ -133,4 +128,42 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	rn.Status = *status
 
 	return ctrl.Result{}, r.client.Status().Update(ctx, &rn)
+}
+
+// cleanUpSubnet removes Subnet's finalizer when it is not referenced by any
+// IPPools.
+func (r *SubnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv1.Subnet) (bool, error) {
+	if subnet.Status.BlockCount == nil {
+		return false, nil
+	}
+
+	used, err := strconv.Atoi(subnet.Status.BlockCount.Used)
+	if err != nil {
+		return false, err
+	}
+	if used > 0 {
+		return false, nil
+	}
+
+	var rpList requeueipv1.IPPoolList
+	if err := r.client.List(
+		ctx,
+		&rpList,
+		client.MatchingLabels{consts.LabelRefSubnet: subnet.Name},
+		client.Limit(1),
+		client.UnsafeDisableDeepCopy,
+	); err != nil {
+		return false, err
+	}
+
+	if len(rpList.Items) != 0 {
+		return false, nil
+	}
+
+	controllerutil.RemoveFinalizer(subnet, consts.RFinalizer)
+	if err := r.client.Update(ctx, subnet); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
