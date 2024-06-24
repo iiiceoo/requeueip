@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "requeueip.daemon" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "requeueip.daemon.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "requeueip.daemon.selectorLabels" . | nindent 6 }}
+  {{- with .Values.daemon.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "requeueip.daemon.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+      - name: install-cni
+        image: "{{ .Values.daemon.image.registry }}/{{ .Values.daemon.image.repository }}:{{ .Values.daemon.image.tag | default (print "v" .Chart.AppVersion) }}"
+        imagePullPolicy: {{ .Values.daemon.image.pullPolicy }}
+        command:
+        - requeueipd
+        args:
+        - install
+        resources:
+          requests:
+            cpu: 10m
+            memory: 15Mi
+        volumeMounts:
+        - name: cni-bin
+          mountPath: /host/opt/cni/bin
+      containers:
+      - name: requeueipd
+        image: "{{ .Values.daemon.image.registry }}/{{ .Values.daemon.image.repository }}:{{ .Values.daemon.image.tag | default (print "v" .Chart.AppVersion) }}"
+        imagePullPolicy: {{ .Values.daemon.image.pullPolicy }}
+        command:
+        - requeueipd
+        args:
+        - run
+        - --socket={{ .Values.daemon.socket }}
+        ports:
+        - name: metrics
+          containerPort: 8443
+          protocol: TCP
+        - name: webhook
+          containerPort: 9443
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: {{ .Values.daemon.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.daemon.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.daemon.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.daemon.livenessProbe.failureThreshold }}
+          successThreshold: {{ .Values.daemon.livenessProbe.successThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: {{ .Values.daemon.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.daemon.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.daemon.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.daemon.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.daemon.readinessProbe.successThreshold }}
+        resources: {{- toYaml .Values.daemon.resources | nindent 10}}
+        volumeMounts:
+        - name: requeueip-daemon-config
+          mountPath: /etc/requeueip
+          readOnly: true
+        - name: ipam-unix-socket-dir
+          mountPath: {{ dir .Values.daemon.socket }}
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute
+      serviceAccountName: {{ include "requeueip.daemon" . }}
+      {{- with .Values.daemon.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: cni-bin
+        hostPath:
+          path: /opt/cni/bin
+          type: DirectoryOrCreate
+      - name: requeueip-daemon-config
+        configMap:
+          name: {{ include "requeueip.daemon" . }}-config
+      - name: ipam-unix-socket-dir
+        hostPath:
+          path: {{ dir .Values.daemon.socket }}
+          type: DirectoryOrCreate

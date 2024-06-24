@@ -42,11 +42,11 @@ RequeueIP daemon/controller.
 {{- end }}
 
 {{/*
-Common labels
+Common labels for RequeueIP daemon.
 */}}
-{{- define "requeueip.labels" -}}
+{{- define "requeueip.daemon.labels" -}}
 helm.sh/chart: {{ include "requeueip.chart" . }}
-{{ include "requeueip.selectorLabels" . }}
+{{ include "requeueip.daemon.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -54,9 +54,31 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Selector labels
+Common labels for RequeueIP controller.
 */}}
-{{- define "requeueip.selectorLabels" -}}
+{{- define "requeueip.controller.labels" -}}
+helm.sh/chart: {{ include "requeueip.chart" . }}
+{{ include "requeueip.controller.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels for RequeueIP daemon.
+*/}}
+{{- define "requeueip.daemon.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "requeueip.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: daemon
+{{- end }}
+
+{{/*
+Selector labels for RequeueIP controller.
+*/}}
+{{- define "requeueip.controller.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "requeueip.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: controller
 {{- end }}

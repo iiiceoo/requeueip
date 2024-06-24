@@ -4,16 +4,16 @@ metadata:
   name: {{ include "requeueip.controller" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "requeueip.labels" . | nindent 4 }}
+    {{- include "requeueip.controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controller.replicas }}
   selector:
     matchLabels:
-      {{- include "requeueip.selectorLabels" . | nindent 6 }}
+      {{- include "requeueip.controller.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "requeueip.selectorLabels" . | nindent 8 }}
+        {{- include "requeueip.controller.selectorLabels" . | nindent 8 }}
     spec:
       containers:
       - name: requeueip-controller
@@ -51,7 +51,7 @@ spec:
         resources: {{- toYaml .Values.controller.resources | nindent 10}}
         volumeMounts:
         - name: requeueip-controller-config
-          mountPath: /etc/requeueip/
+          mountPath: /etc/requeueip
           readOnly: true
         - name: webhook-cert
           mountPath: /etc/requeueip/webhook

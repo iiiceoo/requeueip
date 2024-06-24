@@ -4,13 +4,13 @@ metadata:
   name: {{ include "requeueip.controller" . }}-metrics
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "requeueip.labels" . | nindent 4 }}
+    {{- include "requeueip.controller.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.metricsService.type }}
+  type: {{ .Values.controller.metricsService.type }}
   selector:
-    {{- include "requeueip.selectorLabels" . | nindent 4 }}
+    {{- include "requeueip.controller.selectorLabels" . | nindent 4 }}
   ports:
   - name: metrics
-    port: {{ .Values.metricsService.port }}
+    port: {{ .Values.controller.metricsService.port }}
     targetPort: metrics
     protocol: TCP

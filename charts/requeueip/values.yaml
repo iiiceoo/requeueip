@@ -32,10 +32,41 @@ controller:
     timeoutSeconds: 1
     failureThreshold: 3
     successThreshold: 1
-  config: {}
-metricsService:
-  type: ClusterIP
-  port: 8443
+  metricsService:
+    type: ClusterIP
+    port: 8443
+daemon:
+  socket: /var/run/requeueip/cni.sock
+  image:
+    registry: ghcr.io/requeueip
+    repository: requeueipd
+    tag: ""
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 500Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
+  imagePullSecrets: []
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  updateStrategy:
+    type: RollingUpdate
+  metricsService:
+    type: ClusterIP
+    port: 8443
 webhookService:
   type: ClusterIP
   port: 9443

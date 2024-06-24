@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "requeueip.daemon" . }}-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "requeueip.daemon.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.daemon.metricsService.type }}
+  selector:
+    {{- include "requeueip.daemon.selectorLabels" . | nindent 4 }}
+  ports:
+  - name: metrics
+    port: {{ .Values.daemon.metricsService.port }}
+    targetPort: metrics
+    protocol: TCP

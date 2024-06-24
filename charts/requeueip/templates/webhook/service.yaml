@@ -4,11 +4,11 @@ metadata:
   name: {{ include "requeueip.fullname" . }}-webhook
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "requeueip.labels" . | nindent 4 }}
+    {{- include "requeueip.controller.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.webhookService.type }}
   selector:
-    {{- include "requeueip.selectorLabels" . | nindent 4 }}
+    {{- include "requeueip.controller.selectorLabels" . | nindent 4 }}
   ports:
   - name: webhook
     port: {{ .Values.webhookService.port }}

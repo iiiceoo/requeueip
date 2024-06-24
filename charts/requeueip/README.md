@@ -11,7 +11,6 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | clusterDomain | string | `"cluster.local"` |  |
-| controller.config | object | `{}` |  |
 | controller.image.pullPolicy | string | `"IfNotPresent"` |  |
 | controller.image.registry | string | `"ghcr.io/requeueip"` |  |
 | controller.image.repository | string | `"requeueip-controller"` |  |
@@ -22,6 +21,8 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | controller.livenessProbe.periodSeconds | int | `10` |  |
 | controller.livenessProbe.successThreshold | int | `1` |  |
 | controller.livenessProbe.timeoutSeconds | int | `1` |  |
+| controller.metricsService.port | int | `8443` |  |
+| controller.metricsService.type | string | `"ClusterIP"` |  |
 | controller.readinessProbe.failureThreshold | int | `3` |  |
 | controller.readinessProbe.initialDelaySeconds | int | `10` |  |
 | controller.readinessProbe.periodSeconds | int | `10` |  |
@@ -32,9 +33,30 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | controller.resources.limits.memory | string | `"500Mi"` |  |
 | controller.resources.requests.cpu | string | `"100m"` |  |
 | controller.resources.requests.memory | string | `"200Mi"` |  |
+| daemon.image.pullPolicy | string | `"IfNotPresent"` |  |
+| daemon.image.registry | string | `"ghcr.io/requeueip"` |  |
+| daemon.image.repository | string | `"requeueipd"` |  |
+| daemon.image.tag | string | `""` |  |
+| daemon.imagePullSecrets | list | `[]` |  |
+| daemon.livenessProbe.failureThreshold | int | `6` |  |
+| daemon.livenessProbe.initialDelaySeconds | int | `5` |  |
+| daemon.livenessProbe.periodSeconds | int | `10` |  |
+| daemon.livenessProbe.successThreshold | int | `1` |  |
+| daemon.livenessProbe.timeoutSeconds | int | `1` |  |
+| daemon.metricsService.port | int | `8443` |  |
+| daemon.metricsService.type | string | `"ClusterIP"` |  |
+| daemon.readinessProbe.failureThreshold | int | `3` |  |
+| daemon.readinessProbe.initialDelaySeconds | int | `10` |  |
+| daemon.readinessProbe.periodSeconds | int | `10` |  |
+| daemon.readinessProbe.successThreshold | int | `1` |  |
+| daemon.readinessProbe.timeoutSeconds | int | `1` |  |
+| daemon.resources.limits.cpu | string | `"500m"` |  |
+| daemon.resources.limits.memory | string | `"500Mi"` |  |
+| daemon.resources.requests.cpu | string | `"100m"` |  |
+| daemon.resources.requests.memory | string | `"200Mi"` |  |
+| daemon.socket | string | `"/var/run/requeueip/cni.sock"` |  |
+| daemon.updateStrategy.type | string | `"RollingUpdate"` |  |
 | fullnameOverride | string | `""` |  |
-| metricsService.port | int | `8443` |  |
-| metricsService.type | string | `"ClusterIP"` |  |
 | nameOverride | string | `""` |  |
 | tls.auto.caValidityDuration | int | `3650` |  |
 | tls.auto.certValidityDuration | int | `3650` |  |
