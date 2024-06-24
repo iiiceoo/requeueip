@@ -173,8 +173,10 @@ func (a *allocator) retrieveExistingIPs(ctx context.Context, pod *corev1.Pod, op
 	if v4 < 0 || v6 < 0 {
 		return nil, fmt.Errorf(
 			"%d IPv4 and %d IPv6 addresses were expected to be assigned, but %d previous IP assignment records were found: %v",
-			options.IPv4, options.IPv6,
-			len(ips), ips,
+			options.IPv4,
+			options.IPv6,
+			len(ips),
+			ips,
 		)
 	}
 
@@ -195,7 +197,7 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 	var errUnsupportedWorkload = errors.New("unsupported workload")
 	gvk := owner.APIVersion + "/" + owner.Kind
 	if !slices.Contains(workloadSupports, gvk) {
-		return nil, fmt.Errorf("%w: %s", errUnsupportedWorkload, gvk)
+		return nil, fmt.Errorf("%v: %s", errUnsupportedWorkload, gvk)
 	}
 
 	var workload client.Object
@@ -221,12 +223,12 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 
 		owner := metav1.GetControllerOf(&rs)
 		if owner == nil {
-			return nil, fmt.Errorf("%w: %s", errUnsupportedWorkload, gvk)
+			return nil, fmt.Errorf("%v: %s", errUnsupportedWorkload, gvk)
 		}
 
 		gvk = owner.APIVersion + "/" + owner.Kind
 		if !slices.Contains(workloadSupports, gvk) {
-			return nil, fmt.Errorf("%w: %s", errUnsupportedWorkload, gvk)
+			return nil, fmt.Errorf("%v: %s", errUnsupportedWorkload, gvk)
 		}
 
 		var deploy appsv1.Deployment
@@ -417,7 +419,12 @@ func (a *allocator) waitForIPPoolReady(
 }
 
 // assignIP assigns an IP address to Pod from IPPool.
-func (a *allocator) assignIP(ctx context.Context, pool *requeueipv1.IPPool, num int, pod *corev1.Pod) (*oapiv1.IPConfig, error) {
+func (a *allocator) assignIP(
+	ctx context.Context,
+	pool *requeueipv1.IPPool,
+	num int,
+	pod *corev1.Pod,
+) (*oapiv1.IPConfig, error) {
 	// version + Pod UID + num can uniquely identify an IP address.
 	h := fnv.New32a()
 	id := fmt.Sprintf("%s-%s-%d", pool.Spec.Version, pod.UID, num)

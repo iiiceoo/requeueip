@@ -49,7 +49,11 @@ func newRPCClient(c client.Client) *rpcClient {
 }
 
 // parseClaims parses Pod annotations as IPPoolClaim spec.
-func (c *rpcClient) parseClaims(ctx context.Context, metadata *metav1.ObjectMeta, replicas int32) ([]requeueipv1.IPPoolClaimSpec, error) {
+func (c *rpcClient) parseClaims(
+	ctx context.Context,
+	metadata *metav1.ObjectMeta,
+	replicas int32,
+) ([]requeueipv1.IPPoolClaimSpec, error) {
 	v4Str := metadata.Annotations[consts.AnnoIPv4Subnets]
 	v6Str := metadata.Annotations[consts.AnnoIPv6Subnets]
 	if v4Str == "" && v6Str == "" {

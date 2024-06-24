@@ -42,12 +42,11 @@ func (da *daemonArg) String() string {
 func init() {
 	runCmd.Flags().Int8Var(&arg.v, "v", 0, "Number for the log level verbosity.")
 	runCmd.Flags().StringVar(&arg.file, "config", "/etc/requeueip/daemon.yaml", "Path to config file.")
-	runCmd.Flags().StringVar(&arg.pyroscopeAddr, "pyroscope-address", "", "The address where the Pyroscope server runs (push mode).")
+	runCmd.Flags().
+		StringVar(&arg.pyroscopeAddr, "pyroscope-address", "", "The address where the Pyroscope server runs (push mode).")
 	runCmd.Flags().StringVar(&arg.probeAddr, "health-probe-address", ":8081", "The address that probe endpoint binds to.")
-	runCmd.Flags().StringVar(
-		&arg.unixSocketPath, "socket", consts.CNIUnixSocketPath,
-		"The Unix socket path where the RequeueIP daemon listens.",
-	)
+	runCmd.Flags().
+		StringVar(&arg.unixSocketPath, "socket", consts.CNIUnixSocketPath, "The Unix socket path where the RequeueIP daemon listens.")
 }
 
 var config = new(daeminConfig)

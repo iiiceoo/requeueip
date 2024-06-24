@@ -33,17 +33,17 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/consts"
 )
 
-func NewIPPoolReconciler(c client.Client) *IPPoolReconciler {
-	return &IPPoolReconciler{
+func NewIPPoolReconciler(c client.Client) *poolReconciler {
+	return &poolReconciler{
 		client: c,
 	}
 }
 
-type IPPoolReconciler struct {
+type poolReconciler struct {
 	client client.Client
 }
 
-func (r *IPPoolReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *poolReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&requeueipv1.IPPool{}).
 		Watches(&requeueipv1.IP{}, handler.EnqueueRequestsFromMapFunc(mapFuncForIPPool)).
@@ -67,9 +67,9 @@ var mapFuncForIPPool = func(ctx context.Context, o client.Object) []reconcile.Re
 	}}}
 }
 
-var _ reconcile.Reconciler = &IPPoolReconciler{}
+var _ reconcile.Reconciler = &poolReconciler{}
 
-func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var rp requeueipv1.IPPool
 	if err := r.client.Get(ctx, req.NamespacedName, &rp); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -126,7 +126,7 @@ func (r *IPPoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // cleanUpIPool removes IPPool's finalizer when it is not referenced by any IP
 // and releases its corresponding IPBlocks.
-func (r *IPPoolReconciler) cleanUpIPool(ctx context.Context, pool *requeueipv1.IPPool) (bool, error) {
+func (r *poolReconciler) cleanUpIPool(ctx context.Context, pool *requeueipv1.IPPool) (bool, error) {
 	if pool.Status.Count == nil {
 		return false, nil
 	}

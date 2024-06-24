@@ -35,17 +35,17 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
-func NewSubnetReconciler(c client.Client) *SubnetReconciler {
-	return &SubnetReconciler{
+func NewSubnetReconciler(c client.Client) *subnetReconciler {
+	return &subnetReconciler{
 		client: c,
 	}
 }
 
-type SubnetReconciler struct {
+type subnetReconciler struct {
 	client client.Client
 }
 
-func (r *SubnetReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *subnetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&requeueipv1.Subnet{}).
 		Watches(&requeueipv1.IPBlock{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSubnet)).
@@ -66,15 +66,14 @@ var mapFuncForSubnet = func(ctx context.Context, o client.Object) []reconcile.Re
 	return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: v}}}
 }
 
-var _ reconcile.Reconciler = &SubnetReconciler{}
+var _ reconcile.Reconciler = &subnetReconciler{}
 
-func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var rn requeueipv1.Subnet
 	if err := r.client.Get(ctx, req.NamespacedName, &rn); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Remove the Subnet when there is no workloads depend on it.
 	if !rn.DeletionTimestamp.IsZero() {
 		ok, err := r.cleanUpSubnet(ctx, &rn)
 		if err != nil {
@@ -132,7 +131,7 @@ func (r *SubnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // cleanUpSubnet removes Subnet's finalizer when it is not referenced by any
 // IPPools.
-func (r *SubnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv1.Subnet) (bool, error) {
+func (r *subnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv1.Subnet) (bool, error) {
 	if subnet.Status.BlockCount == nil {
 		return false, nil
 	}

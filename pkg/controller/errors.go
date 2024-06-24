@@ -25,7 +25,7 @@ import (
 
 var (
 	// The Subnet does not have enough IP blocks for IP address assignments.
-	errInsufficientIPBlocks = errors.New("IP blocks are insufficient")
+	errInsufficientIPBlocks = errors.New("IPBlocks are insufficient")
 )
 
 type errRequeue ctrl.Result
