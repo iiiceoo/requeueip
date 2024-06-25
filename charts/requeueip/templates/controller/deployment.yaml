@@ -15,6 +15,11 @@ spec:
       labels:
         {{- include "requeueip.controller.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "requeueip.controller" . }}
+      {{- with .Values.controller.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: requeueip-controller
         image: "{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default (print "v" .Chart.AppVersion) }}"
@@ -56,11 +61,6 @@ spec:
         - name: webhook-cert
           mountPath: /etc/requeueip/webhook
           readOnly: true
-      serviceAccountName: {{ include "requeueip.controller" . }}
-      {{- with .Values.controller.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       volumes:
       - name: requeueip-controller-config
         configMap:

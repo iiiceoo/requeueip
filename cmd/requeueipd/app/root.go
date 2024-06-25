@@ -22,6 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iiiceoo/requeueip/cmd/requeueipd/app/install"
 	"github.com/iiiceoo/requeueip/cmd/requeueipd/app/run"
 	"github.com/iiiceoo/requeueip/cmd/requeueipd/app/version"
 )
@@ -40,5 +41,6 @@ func Excute() {
 
 func init() {
 	rootCmd.AddCommand(version.VersionCmd())
+	rootCmd.AddCommand(install.InstallCmd())
 	rootCmd.AddCommand(run.RunCmd())
 }

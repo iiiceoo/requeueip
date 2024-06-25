@@ -34,7 +34,7 @@ Create chart name and version as used by the chart label.
 RequeueIP daemon/controller.
 */}}
 {{- define "requeueip.daemon" -}}
-{{ include "requeueip.fullname" . }}-daemon
+{{ include "requeueip.fullname" . }}d
 {{- end }}
 
 {{- define "requeueip.controller" -}}

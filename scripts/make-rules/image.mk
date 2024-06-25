@@ -16,7 +16,7 @@ DOCKER := docker
 
 REGISTRY_PREFIX ?= ghcr.io/requeueip
 BUILDER_IMAGE ?= golang:$(GO_VERSION)
-BASE_IMAGE ?= gcr.io/distroless/static:nonroot
+BASE_IMAGE ?= alpine
 
 # Determine image files by looking into images/*/Dockerfile.
 IMAGES_DIR ?= $(wildcard ${ROOT_DIR}/images/*)

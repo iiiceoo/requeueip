@@ -29,7 +29,7 @@ deploy.clean: kind.clean
 kind.cluster: tools.verify.kind
 	$(eval EXIST := $(shell kind get clusters | grep -q $(GIT_BRANCH) && echo 0 || echo 1))
 	@if [ $(EXIST) -ne 1 ]; then \
-		echo "kind cluster $(GIT_BRANCH) already exist"; \
+		echo "kind cluster $(GIT_BRANCH) already exist";  exit 0; \
 	else \
 		$(KIND) create cluster --image $(NODE_IMAGE) --config $(KIND_CONFIG) --name $(GIT_BRANCH); \
 	fi
@@ -44,7 +44,9 @@ kind.use-context:
 
 .PHONY: kind.charts
 kind.charts: kind.cluster
-	@$(HELM) upgrade requeueip charts/requeueip/ -n kube-system \
-	--wait --install --kube-context kind-$(GIT_BRANCH) \
+	@$(HELM) upgrade requeueip $(CHARTS_DIR) -n kube-system \
+	--wait --timeout 1m --install --kube-context kind-$(GIT_BRANCH) \
+	--set daemon.image.registry=$(REGISTRY_PREFIX) \
+	--set daemon.image.tag=$(VERSION) \
 	--set controller.image.registry=$(REGISTRY_PREFIX) \
 	--set controller.image.tag=$(VERSION)

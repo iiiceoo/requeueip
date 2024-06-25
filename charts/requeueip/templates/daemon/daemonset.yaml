@@ -18,6 +18,17 @@ spec:
       labels:
         {{- include "requeueip.daemon.selectorLabels" . | nindent 8 }}
     spec:
+      hostNetwork: true
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute
+      serviceAccountName: {{ include "requeueip.daemon" . }}
+      {{- with .Values.daemon.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
       - name: install-cni
         image: "{{ .Values.daemon.image.registry }}/{{ .Values.daemon.image.repository }}:{{ .Values.daemon.image.tag | default (print "v" .Chart.AppVersion) }}"
@@ -74,21 +85,10 @@ spec:
           readOnly: true
         - name: ipam-unix-socket-dir
           mountPath: {{ dir .Values.daemon.socket }}
-      tolerations:
-      - operator: Exists
-        effect: NoSchedule
-      - operator: Exists
-        effect: NoExecute
-      serviceAccountName: {{ include "requeueip.daemon" . }}
-      {{- with .Values.daemon.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       volumes:
       - name: cni-bin
         hostPath:
           path: /opt/cni/bin
-          type: DirectoryOrCreate
       - name: requeueip-daemon-config
         configMap:
           name: {{ include "requeueip.daemon" . }}-config
