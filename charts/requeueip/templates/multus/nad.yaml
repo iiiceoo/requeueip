@@ -1,0 +1,12 @@
+{{- if .Values.multus.enabled -}}
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: {{ .Values.multus.nad.name }}
+  namespace: kube-system
+spec:
+  config: |-
+    {{- with .Values.multus.nad.config }}
+    {{- toJson . | nindent 4}}
+    {{- end }}
+{{- end -}}

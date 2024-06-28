@@ -32,7 +32,7 @@ OUTPUT_DIFF_DIR=${OUTPUT_DIFF_DIR:-${CONTROLLER_GEN_TMP_DIR}/new}
 
 
 manifests_clean() {
-  rm -rf ${OUTPUT_BASE_DIR}/crds/*
+  rm -rf ${OUTPUT_BASE_DIR}/crds/requeueip*
   rm -rf ${OUTPUT_BASE_DIR}/templates/rbac/role.yaml
 }
 
@@ -60,9 +60,10 @@ deepcopy_gen() {
 
 manifests_verify() {
   # Aggregate the artifacts currently in use
+  mkdir -p ${OUTPUT_TMP_DIR}/crds
   mkdir -p ${OUTPUT_TMP_DIR}/templates/rbac
   if [ "$(ls -A ${OUTPUT_BASE_DIR}/crds)" ]; then
-    cp -a ${OUTPUT_BASE_DIR}/crds ${OUTPUT_TMP_DIR}
+    find ${OUTPUT_BASE_DIR}/crds -type f -name 'requeueip*' | xargs -n1 -I {} cp {} ${OUTPUT_TMP_DIR}/crds
   fi
 
   if [ "$(ls -A ${OUTPUT_BASE_DIR}/templates/rbac)" ]; then

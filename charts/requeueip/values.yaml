@@ -5,6 +5,93 @@
 nameOverride: ""
 fullnameOverride: ""
 clusterDomain: cluster.local
+multus:
+  enabled: true
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  image:
+    registry: ghcr.io/k8snetworkplumbingwg
+    repository: multus-cni
+    tag: snapshot-thick
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 1024Mi
+    requests:
+      cpu: 250m
+      memory: 128Mi
+  imagePullSecrets: []
+  config:
+    cniVersion: 0.3.1
+    chrootDir: /hostroot
+    logLevel: verbose
+    logToStderr: true
+    cniConfigDir: /host/etc/cni/net.d
+    multusAutoconfigDir: /host/etc/cni/net.d
+    multusConfigFile: auto
+    socketDir: /host/run/multus
+  nad:
+    name: calico-requeueip
+    config:
+      name: static-network
+      cniVersion: 0.3.1
+      plugins:
+      - type: calico
+        log_level: info
+        log_file_path: /var/log/calico/cni/cni.log
+        datastore_type: kubernetes
+        ipam:
+          type: requeueip
+          ipv4: true
+          ipv6: false
+        policy:
+          type: k8s
+        kubernetes:
+          kubeconfig: /etc/cni/net.d/calico-kubeconfig
+      - type: portmap
+        snat: true
+        capabilities:
+          portMappings: true
+      - type: bandwidth
+        capabilities:
+          bandwidth: true
+daemon:
+  socket: /var/run/requeueip/cni.sock
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  image:
+    registry: ghcr.io/requeueip
+    repository: requeueipd
+    tag: ""
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 500Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
+  imagePullSecrets: []
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  metricsService:
+    type: ClusterIP
+    port: 8443
 controller:
   replicas: 1
   image:
@@ -32,38 +119,6 @@ controller:
     timeoutSeconds: 1
     failureThreshold: 3
     successThreshold: 1
-  metricsService:
-    type: ClusterIP
-    port: 8443
-daemon:
-  socket: /var/run/requeueip/cni.sock
-  image:
-    registry: ghcr.io/requeueip
-    repository: requeueipd
-    tag: ""
-    pullPolicy: IfNotPresent
-  resources:
-    limits:
-      cpu: 500m
-      memory: 500Mi
-    requests:
-      cpu: 100m
-      memory: 200Mi
-  imagePullSecrets: []
-  livenessProbe:
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 1
-    failureThreshold: 6
-    successThreshold: 1
-  readinessProbe:
-    initialDelaySeconds: 10
-    periodSeconds: 10
-    timeoutSeconds: 1
-    failureThreshold: 3
-    successThreshold: 1
-  updateStrategy:
-    type: RollingUpdate
   metricsService:
     type: ClusterIP
     port: 8443

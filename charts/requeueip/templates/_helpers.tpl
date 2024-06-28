@@ -31,14 +31,36 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
-RequeueIP daemon/controller.
+RequeueIP Multus.
+*/}}
+{{- define "requeueip.multus" -}}
+{{ include "requeueip.fullname" . }}-multus
+{{- end }}
+
+{{/*
+RequeueIP daemon.
 */}}
 {{- define "requeueip.daemon" -}}
 {{ include "requeueip.fullname" . }}d
 {{- end }}
 
+{{/*
+RequeueIP controller.
+*/}}
 {{- define "requeueip.controller" -}}
 {{ include "requeueip.fullname" . }}-controller
+{{- end }}
+
+{{/*
+Common labels for RequeueIP Multus.
+*/}}
+{{- define "requeueip.multus.labels" -}}
+helm.sh/chart: {{ include "requeueip.chart" . }}
+{{ include "requeueip.multus.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
@@ -63,6 +85,15 @@ helm.sh/chart: {{ include "requeueip.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels for RequeueIP Multus.
+*/}}
+{{- define "requeueip.multus.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "requeueip.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: multus
 {{- end }}
 
 {{/*

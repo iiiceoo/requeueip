@@ -53,7 +53,8 @@ spec:
           timeoutSeconds: {{ .Values.controller.readinessProbe.timeoutSeconds }}
           failureThreshold: {{ .Values.controller.readinessProbe.failureThreshold }}
           successThreshold: {{ .Values.controller.readinessProbe.successThreshold }}
-        resources: {{- toYaml .Values.controller.resources | nindent 10}}
+        resources:
+          {{- toYaml .Values.controller.resources | nindent 10}}
         volumeMounts:
         - name: requeueip-controller-config
           mountPath: /etc/requeueip

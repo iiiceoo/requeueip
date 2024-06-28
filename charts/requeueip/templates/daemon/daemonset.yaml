@@ -78,9 +78,10 @@ spec:
           timeoutSeconds: {{ .Values.daemon.readinessProbe.timeoutSeconds }}
           failureThreshold: {{ .Values.daemon.readinessProbe.failureThreshold }}
           successThreshold: {{ .Values.daemon.readinessProbe.successThreshold }}
-        resources: {{- toYaml .Values.daemon.resources | nindent 10}}
+        resources:
+          {{- toYaml .Values.daemon.resources | nindent 10}}
         volumeMounts:
-        - name: requeueip-daemon-config
+        - name: requeueipd-config
           mountPath: /etc/requeueip
           readOnly: true
         - name: ipam-unix-socket-dir
@@ -89,7 +90,7 @@ spec:
       - name: cni-bin
         hostPath:
           path: /opt/cni/bin
-      - name: requeueip-daemon-config
+      - name: requeueipd-config
         configMap:
           name: {{ include "requeueip.daemon" . }}-config
       - name: ipam-unix-socket-dir
