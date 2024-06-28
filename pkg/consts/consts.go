@@ -41,6 +41,11 @@ const (
 	LabelRefPodUID      = refPrefix + "/" + "pod-uid"
 )
 
+const (
+	LabelRefSTSUID = RPrefix + "/" + "sts-uid"
+	LabelRefPod    = RPrefix + "/" + "pod"
+)
+
 const LabelIPVersion = RPrefix + "/" + "ip-version"
 
 const (

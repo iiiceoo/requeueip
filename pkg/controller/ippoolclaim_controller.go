@@ -178,7 +178,7 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 		var rn requeueipv1.Subnet
 		if err := r.client.Get(ctx, types.NamespacedName{Name: s}, &rn); err != nil {
 			if apierrors.IsNotFound(err) {
-				logger.V(1).Info("Candidate Subnet does not exist", "name", s)
+				logger.Info("Candidate Subnet does not exist", "name", s)
 				continue
 			}
 			return nil, err

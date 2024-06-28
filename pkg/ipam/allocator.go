@@ -84,9 +84,9 @@ type allocator struct {
 // ipAssignment contains the count of IPv4 and IPv6 addresses to be assigned
 // as well as the slices of currently assigned IP addresses.
 type ipAssignment struct {
-	v4  int
-	v6  int
-	ips []oapiv1.IPConfig
+	v4ToAssign int
+	v6ToAssign int
+	ips        []oapiv1.IPConfig
 }
 
 func (a *allocator) Get(ctx context.Context, namespace, podName string, options *Options) ([]oapiv1.IPConfig, error) {
@@ -104,89 +104,25 @@ func (a *allocator) Get(ctx context.Context, namespace, podName string, options 
 		return nil, fmt.Errorf("dead Pod: %s/%s", pod.Namespace, pod.Name)
 	}
 
-	assignment, err := a.retrieveExistingIPs(ctx, &pod, options)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve the previous IP assignment: %v", err)
-	}
-	if assignment.v4 == 0 && assignment.v6 == 0 {
-		return assignment.ips, nil
-	}
-
 	workload, err := a.getWorkload(ctx, &pod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the top controller of Pod %s/%s: %v", pod.Namespace, pod.Name, err)
 	}
 
-	// TODO(iiiceoo): StatefulSet.
+	assignment, err := a.retrieveExistingIPs(ctx, &pod, workload, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve the previous IP assignment: %v", err)
+	}
+	if assignment.v4ToAssign == 0 && assignment.v6ToAssign == 0 {
+		return assignment.ips, nil
+	}
+
 	ips, err := a.assign(ctx, &pod, workload, assignment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to assign IP addresses: %v", err)
 	}
 
 	return ips, nil
-}
-
-// retrieveExistingIPs retrieves the previous IP assignment records.
-func (a *allocator) retrieveExistingIPs(ctx context.Context, pod *corev1.Pod, options *Options) (*ipAssignment, error) {
-	// It is reasonable to use IPs in the cache, as the interval between two
-	// cmdAdd requests for the same Pod is completely sufficient for Informer
-	// sync, which usually occurs when the sandbox is not successfully created.
-	var riList requeueipv1.IPList
-	if err := a.client.List(
-		ctx,
-		&riList,
-		client.MatchingLabels{consts.LabelRefPodUID: string(pod.UID)},
-		client.InNamespace(pod.Namespace),
-		client.UnsafeDisableDeepCopy,
-	); err != nil {
-		return nil, err
-	}
-
-	v4, v6 := options.IPv4, options.IPv6
-	ips := make([]oapiv1.IPConfig, 0, len(riList.Items))
-	for i := 0; i < len(riList.Items); i++ {
-		ri := &riList.Items[i]
-		if !ri.DeletionTimestamp.IsZero() {
-			continue
-		}
-
-		version, ok := ri.Labels[consts.LabelIPVersion]
-		if !ok {
-			return nil, fmt.Errorf("IP %s/%s without version label", ri.Namespace, ri.Name)
-		}
-
-		// If NameToCIDRIP does not return an error, then version must be valid.
-		ip, err := net.NameToCIDRIP(version, ri.Name)
-		if err != nil {
-			return nil, err
-		}
-		if version == net.IPv4 {
-			v4--
-		} else {
-			v6--
-		}
-
-		ips = append(ips, oapiv1.IPConfig{
-			Address: ip.String(),
-			Gateway: nil,
-		})
-	}
-
-	if v4 < 0 || v6 < 0 {
-		return nil, fmt.Errorf(
-			"%d IPv4 and %d IPv6 addresses were expected to be assigned, but %d previous IP assignment records were found: %v",
-			options.IPv4,
-			options.IPv6,
-			len(ips),
-			ips,
-		)
-	}
-
-	return &ipAssignment{
-		v4:  v4,
-		v6:  v6,
-		ips: ips,
-	}, nil
 }
 
 // getWorkload gets the supported top controller of Pod.
@@ -250,6 +186,82 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 	return workload, nil
 }
 
+// retrieveExistingIPs retrieves the previous IP assignment records.
+func (a *allocator) retrieveExistingIPs(
+	ctx context.Context,
+	pod *corev1.Pod,
+	workload client.Object,
+	options *Options,
+) (*ipAssignment, error) {
+	labels := map[string]string{}
+	if workload.GetObjectKind().GroupVersionKind().Kind == kindStatefulSet {
+		labels[consts.LabelRefSTSUID] = string(workload.GetUID())
+		labels[consts.LabelRefPod] = pod.Name
+	} else {
+		labels[consts.LabelRefPodUID] = string(pod.UID)
+	}
+
+	// It is reasonable to use IPs in the cache, as the interval between two
+	// cmdAdd requests for the same Pod is completely sufficient for Informer
+	// sync, which usually occurs when the sandbox is not successfully created.
+	var riList requeueipv1.IPList
+	if err := a.client.List(
+		ctx,
+		&riList,
+		client.MatchingLabels{consts.LabelRefPodUID: string(pod.UID)},
+		client.InNamespace(pod.Namespace),
+		client.UnsafeDisableDeepCopy,
+	); err != nil {
+		return nil, err
+	}
+
+	v4, v6 := options.IPv4, options.IPv6
+	ips := make([]oapiv1.IPConfig, 0, len(riList.Items))
+	for i := 0; i < len(riList.Items); i++ {
+		ri := &riList.Items[i]
+		if !ri.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		version, ok := ri.Labels[consts.LabelIPVersion]
+		if !ok {
+			return nil, fmt.Errorf("IP %s/%s without version label", ri.Namespace, ri.Name)
+		}
+
+		// If NameToCIDRIP does not return an error, then version must be valid.
+		ip, err := net.NameToCIDRIP(version, ri.Name)
+		if err != nil {
+			return nil, err
+		}
+		if version == net.IPv4 {
+			v4--
+		} else {
+			v6--
+		}
+
+		ips = append(ips, oapiv1.IPConfig{
+			Address: ip.String(),
+			Gateway: nil,
+		})
+	}
+
+	if v4 < 0 || v6 < 0 {
+		return nil, fmt.Errorf(
+			"excepted to assign %d IPv4 and %d IPv6 addresses, but %d previous IP records were found: %v",
+			options.IPv4,
+			options.IPv6,
+			len(ips),
+			ips,
+		)
+	}
+
+	return &ipAssignment{
+		v4ToAssign: v4,
+		v6ToAssign: v6,
+		ips:        ips,
+	}, nil
+}
+
 // assign assigns IP addresses to Pod.
 func (a *allocator) assign(
 	ctx context.Context,
@@ -260,11 +272,11 @@ func (a *allocator) assign(
 	var wg sync.WaitGroup
 	errCh := make(chan error, 2)
 	ipsCh := make(chan []oapiv1.IPConfig, 2)
-	if assignment.v4 > 0 {
+	if assignment.v4ToAssign > 0 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ips, err := a.assignIPs(ctx, net.IPv4, assignment.v4, pod, workload)
+			ips, err := a.assignIPs(ctx, net.IPv4, assignment.v4ToAssign, pod, workload)
 			if err != nil {
 				errCh <- err
 				return
@@ -272,11 +284,11 @@ func (a *allocator) assign(
 			ipsCh <- ips
 		}()
 	}
-	if assignment.v6 > 0 {
+	if assignment.v6ToAssign > 0 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ips, err := a.assignIPs(ctx, net.IPv6, assignment.v6, pod, workload)
+			ips, err := a.assignIPs(ctx, net.IPv6, assignment.v6ToAssign, pod, workload)
 			if err != nil {
 				errCh <- err
 				return
@@ -335,7 +347,7 @@ func (a *allocator) assignIPs(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ip, err := a.assignIP(ctx, pool, i, pod)
+			ip, err := a.assignIP(ctx, pool, i, pod, workload)
 			if err != nil {
 				errCh <- err
 				return
@@ -430,6 +442,7 @@ func (a *allocator) assignIP(
 	pool *requeueipv1.IPPool,
 	num int,
 	pod *corev1.Pod,
+	workload client.Object,
 ) (*oapiv1.IPConfig, error) {
 	// version + Pod UID + num can uniquely identify an IP address.
 	h := fnv.New32a()
@@ -444,11 +457,22 @@ func (a *allocator) assignIP(
 			Labels: map[string]string{
 				consts.LabelIPVersion: pool.Spec.Version,
 				consts.LabelRefIPPool: pool.Name,
-				consts.LabelRefPodUID: string(pod.UID),
 			},
 		},
 	}
-	if err := controllerutil.SetControllerReference(pod, ri, a.client.Scheme()); err != nil {
+
+	// The IP addresses used by Pod controlled by StatefulSet will be asynchronously
+	// released by the controller.
+	var owner metav1.Object
+	if workload.GetObjectKind().GroupVersionKind().Kind == kindStatefulSet {
+		owner = workload
+		ri.Labels[consts.LabelRefSTSUID] = string(workload.GetUID())
+		ri.Labels[consts.LabelRefPod] = pod.Name
+	} else {
+		owner = pod
+		ri.Labels[consts.LabelRefPodUID] = string(pod.UID)
+	}
+	if err := controllerutil.SetControllerReference(owner, ri, a.client.Scheme()); err != nil {
 		return nil, err
 	}
 
