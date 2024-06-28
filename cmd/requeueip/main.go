@@ -25,7 +25,7 @@ import (
 )
 
 // The minimum CNI spec version supported by RequesteIP IPAM CNI.
-const min = "0.0.3"
+const min = "0.3.1"
 
 func main() {
 	text, _ := rversion.Get().Text()
