@@ -49,9 +49,9 @@ type IPAMConfig struct {
 type IPAMEnvArgs struct {
 	types.CommonArgs
 
-	PodNamespace types.UnmarshallableString `json:"K8S_POD_NAMESPACE"`
-	PodName      types.UnmarshallableString `json:"K8S_POD_NAME"`
-	PodUID       types.UnmarshallableString `json:"K8S_POD_UID"`
+	K8S_POD_NAMESPACE types.UnmarshallableString //nolint:stylecheck
+	K8S_POD_NAME      types.UnmarshallableString //nolint:stylecheck
+	K8S_POD_UID       types.UnmarshallableString //nolint:stylecheck
 }
 
 // LoadIPAMConfig creates IPAMConfig using json encoded configuration provided

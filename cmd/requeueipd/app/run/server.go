@@ -49,7 +49,7 @@ func run(ctx context.Context) error {
 		Level:             zap.NewAtomicLevelAt(zapcore.Level(-arg.v)),
 		Development:       false,
 		Encoding:          "console",
-		EncoderConfig:     zap.NewProductionEncoderConfig(),
+		EncoderConfig:     zap.NewDevelopmentEncoderConfig(),
 		DisableStacktrace: true,
 		OutputPaths:       []string{"stderr"},
 		ErrorOutputPaths:  []string{"stderr"},

@@ -60,7 +60,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		Level:             zap.NewAtomicLevelAt(zapcore.Level(-ipamConf.LogLevel)),
 		Development:       false,
 		Encoding:          "console",
-		EncoderConfig:     zap.NewProductionEncoderConfig(),
+		EncoderConfig:     zap.NewDevelopmentEncoderConfig(),
 		DisableStacktrace: true,
 		OutputPaths:       []string{ipamConf.LogPath},
 		ErrorOutputPaths:  []string{ipamConf.LogPath},
@@ -83,9 +83,9 @@ func CmdAdd(args *skel.CmdArgs) error {
 	}
 
 	logger = logger.WithValues(
-		"podNamespace", envs.PodNamespace,
-		"podName", envs.PodName,
-		"podUID", envs.PodUID,
+		"podNamespace", envs.K8S_POD_NAMESPACE,
+		"podName", envs.K8S_POD_NAME,
+		"podUID", envs.K8S_POD_UID,
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -116,8 +116,8 @@ func assign(ctx context.Context, envs *IPAMEnvArgs, ipamConfig *IPAMConfig) (*cu
 	resp, err := client.CmdAddWithResponse(ctx, oapiv1.CmdAddJSONRequestBody{
 		Ipv4:         *ipamConfig.IPv4,
 		Ipv6:         *ipamConfig.IPv6,
-		PodNamespace: string(envs.PodNamespace),
-		PodName:      string(envs.PodName),
+		PodNamespace: string(envs.K8S_POD_NAMESPACE),
+		PodName:      string(envs.K8S_POD_NAME),
 	})
 	if err != nil {
 		return nil, err

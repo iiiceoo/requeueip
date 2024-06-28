@@ -48,17 +48,18 @@ func newRPCClient(c client.Client) *rpcClient {
 	}
 }
 
-// parseClaims parses Pod annotations as IPPoolClaim spec.
+// parseClaims parses Pod or Namespace annotations as IPPoolClaim spec.
 func (c *rpcClient) parseClaims(
 	ctx context.Context,
-	metadata *metav1.ObjectMeta,
+	namespace string,
+	annotations map[string]string,
 	replicas int32,
 ) ([]requeueipv1.IPPoolClaimSpec, error) {
-	v4Str := metadata.Annotations[consts.AnnoIPv4Subnets]
-	v6Str := metadata.Annotations[consts.AnnoIPv6Subnets]
+	v4Str := annotations[consts.AnnoIPv4Subnets]
+	v6Str := annotations[consts.AnnoIPv6Subnets]
 	if v4Str == "" && v6Str == "" {
 		var ns corev1.Namespace
-		if err := c.client.Get(ctx, types.NamespacedName{Name: metadata.Namespace}, &ns); err != nil {
+		if err := c.client.Get(ctx, types.NamespacedName{Name: namespace}, &ns); err != nil {
 			return nil, err
 		}
 		v4Str = ns.Annotations[consts.AnnoIPv4Subnets]
@@ -90,6 +91,10 @@ func (c *rpcClient) parseClaims(
 // ensureClaims updates IPPoolClaims with specified specs, or creates them
 // if they do not exist.
 func (c *rpcClient) ensureClaims(ctx context.Context, specs []requeueipv1.IPPoolClaimSpec, object client.Object) error {
+	if len(specs) == 0 {
+		return nil
+	}
+
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(specs))
 	for i := 0; i < len(specs); i++ {

@@ -474,7 +474,7 @@ func (a *allocator) assignIP(
 
 			ri.Name = net.IPToName(ip)
 			if err := a.client.Create(ctx, ri); err != nil {
-				return fmt.Errorf("failed to get a non-conflicting IP address from IPPool %s: %v", pool.Name, err)
+				return fmt.Errorf("failed to get a non-conflicting IP address from IPPool %s: %w", pool.Name, err)
 			}
 		}
 		return nil
