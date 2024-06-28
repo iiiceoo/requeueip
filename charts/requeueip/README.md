@@ -68,8 +68,8 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | multus.config.socketDir | string | `"/host/run/multus"` |  |
 | multus.enabled | bool | `true` |  |
 | multus.image.pullPolicy | string | `"IfNotPresent"` |  |
-| multus.image.registry | string | `"ghcr.io/requeueip"` |  |
-| multus.image.repository | string | `"requeueipd"` |  |
+| multus.image.registry | string | `"ghcr.io/k8snetworkplumbingwg"` |  |
+| multus.image.repository | string | `"multus-cni"` |  |
 | multus.image.tag | string | `"snapshot-thick"` |  |
 | multus.imagePullSecrets | list | `[]` |  |
 | multus.nad.config.cniVersion | string | `"0.3.1"` |  |

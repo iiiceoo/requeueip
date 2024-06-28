@@ -22,8 +22,6 @@ import (
 	"regexp"
 	"strconv"
 
-	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
-	"github.com/iiiceoo/requeueip/pkg/consts"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,6 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
+	"github.com/iiiceoo/requeueip/pkg/consts"
 )
 
 func NewGCReconciler(c client.Client) *gcReconciler {
@@ -176,7 +177,7 @@ func isRunningSTSPod(sts *appsv1.StatefulSet, podName string) (bool, error) {
 
 // regexSTSPodName is a regular expression that extracts the parent StatefulSet
 // and ordinal from the Name of a Pod.
-var regexSTSPodName = regexp.MustCompile("(.*)-([0-9]+)$")
+var regexSTSPodName = regexp.MustCompile(`(.*)-(\d+)$`)
 
 // getSTSPodOrdinal gets Pod's ordinal as extracted from its Name. If the Pod
 // was not created by a StatefulSet, its ordinal is considered to be -1.

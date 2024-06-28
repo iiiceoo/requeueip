@@ -341,9 +341,21 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 		return err
 	}
 
-	alloc.pool.Spec.Ranges = alloc.poolRanges.Diff(free).Strings()
+	ranges := alloc.poolRanges.Diff(free)
+	alloc.pool.Spec.Ranges = ranges.Strings()
 	if err := r.client.Update(ctx, alloc.pool); err != nil {
 		return err
+	}
+
+	if ranges.Size().Sign() == 0 {
+		return r.client.DeleteAllOf(
+			ctx,
+			&requeueipv1.IPBlock{},
+			client.MatchingLabels{
+				consts.LabelRefNamespace: alloc.pool.Namespace,
+				consts.LabelRefIPPool:    alloc.pool.Name,
+			},
+		)
 	}
 
 	// Never get IPBlocks from the cache.
