@@ -23,10 +23,12 @@ import (
 
 // AddArgs defines model for AddArgs.
 type AddArgs struct {
+	ContainerID  string `json:"containerID"`
 	Ipv4         bool   `json:"ipv4"`
 	Ipv6         bool   `json:"ipv6"`
 	PodName      string `json:"podName"`
 	PodNamespace string `json:"podNamespace"`
+	PodUID       string `json:"podUID"`
 }
 
 // DNS defines model for DNS.
@@ -728,17 +730,17 @@ func (sh *strictHandler) CmdAdd(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/6xUTW/bMAz9Kwa3o2dl3bCDb1nWYQGGoGgPOxQ9qBZtq7AljZSbBYX/+yDZbdJGWFag",
-	"J39Qj3x8fNQDVLZ31qDxDOUDcNViL+PrUqklNfHVkXVIXmP80u7+c3j6nUMo4dbaDqWBMQ+RL+mIs2oj",
-	"ezwIsidtmoMYO1mlDow5EP4eNKGC8nqqPpd6gd2Xuckfs9jbO6x8KPNtc3Xci7K91CZJy4S8SPdIU9ce",
-	"e04enH9IIrkL39Z5bc0rQYySqvY1mBe6HNJNtX9OZCmZdn2xsqbWzbE6UilCTpNppMet3J0e2GOSFKlL",
-	"5KHzibFM8r0nrKGEd2JvUjE7VIRxRss9F/pfkKdGE/qTHTz+f6rLcPzkTAK5ZNsRfdw1+7TU29MqB+xx",
-	"qXBKm9rG7MgV6ehNKOEXSeeQstpSttqss5AL2XMmjcoI2VnDyAXk0OkKDUe6Jq4wLJ2sWszOigXkMFAH",
-	"JbTeOy6F2G63hYzhwlIjZiyLn+vV+ebq/MNZsSha33dROu27kO4ylB5wfRGIQA7BwhPJj8WiWEwrhUY6",
-	"DSV8ir9ycNK3UTTRoux83JwGo35BUhnaXCso4ccUDmrNTYUzZ4vFsSZ7Ikpib02mOZuy74qg5ZiDmP3m",
-	"LCdqrXq1VAqmySD7r1bFBams8WgiQDrX6SpCxB1bs790T1nu8T4en4/e04Bjurs3KTuvaKz6XK6roaqQ",
-	"uR66bpdJZt0YVNn6Ips3Ptgngmo5L/mbEJousgSf71J3qDJvA5lGm5dUpgk+XenXDwfeLYUYjP5TChhv",
-	"xr8BAAD//2VZa8IVBwAA",
+	"H4sIAAAAAAAC/6xUT2/bPgz9KgZ/v6NnZd2wg29Z2mEBhqBoMexQ9KBajK3CljRSbhYU/u6DZKdpGm1Z",
+	"gd4sk3x8fPzzCJXtnDVoPEP5CFw12Mn4OVdqTnX8dGQdktcYX5U1XmqDtDwPT791CCWwJ21qGHLQ7uHj",
+	"M8OdtS1KM1k+pS3OqpXsMIk32djJ6o8O35NchhwIf/aaUEF5MxKbWOQHZbxIsufzBH6b78Dt3T1WPuQ9",
+	"X10fq6NsJ7VJ8jQhAdIDUvTUHjtOOk4/JJHchrd1XlvzyiBGSVXzmpgXcj2nmyr/gshSEnZ5ubBmretj",
+	"daRShJwmU0uPG7k93ccdSIrUFXLf+kRbRvn+J1xDCf+J/diLaeZFaGcc0kOh/xbyVGhCf7K9x3+Hugru",
+	"J3sSyCXLjtHHVbNPS705rXKIPU4VvLRZ24iOXJGOswkl/CDpHFK2tpQtVsssYCF7zqRRGSE7axi5gBxa",
+	"XaHhSNfEpYe5k1WD2Vkxgxx6aqGExnvHpRCbzaaQ0VxYqsUUy+LbcnGxur54d1bMisZ3bZRO+zbAXYXU",
+	"PS4vAxHIIYzwSPJ9MStm40qhkU5DCR/irxyc9E0UTTQoWx83p8aoX5BUhjKXCkr4OpqDWlNRwedsNjvW",
+	"ZE9ESeysyTRnI/q2CFoOOYhp3pzlRK5Fp+ZKwdgZZP/Zqu3uBqOJAdK5VlcxRNyzNfszfmrkdhd+OGy9",
+	"px6HdHVvknZa0Zj1UK7rvqqQed237TaTzLo2qLLlZTZtfBifGLSW05K/CaHxkCX4fJG6RZV5G8jU2ryk",
+	"Mnbw6aTfPD6b3VKI3uhfpYDhdvgdAAD//88YWUlnBwAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

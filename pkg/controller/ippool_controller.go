@@ -90,6 +90,7 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		ctx,
 		&riList,
 		client.MatchingLabels{consts.LabelRefIPPool: rp.Name},
+		client.InNamespace(rp.Namespace),
 		client.UnsafeDisableDeepCopy,
 	); err != nil {
 		return ctrl.Result{}, err

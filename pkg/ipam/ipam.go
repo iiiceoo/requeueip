@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	oapiv1 "github.com/iiiceoo/requeueip/oapi/v1"
 )
@@ -49,8 +50,18 @@ func (s *ipamService) CmdAdd(ctx context.Context, request oapiv1.CmdAddRequestOb
 		v6 = 1
 	}
 
+	logger := log.FromContext(ctx).WithValues(
+		"action", "add",
+		"ipv4", v4,
+		"ipv6", v6,
+		"containerID", request.Body.ContainerID,
+		"podNamespace", request.Body.PodNamespace,
+		"podName", request.Body.PodName,
+		"podUID", request.Body.PodUID,
+	)
+
 	ips, err := s.allocator.Get(
-		ctx,
+		log.IntoContext(ctx, logger),
 		request.Body.PodNamespace,
 		request.Body.PodName,
 		&Options{
@@ -59,6 +70,7 @@ func (s *ipamService) CmdAdd(ctx context.Context, request oapiv1.CmdAddRequestOb
 		},
 	)
 	if err != nil {
+		logger.Error(nil, err.Error())
 		return oapiv1.CmdAdddefaultJSONResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       err.Error(),

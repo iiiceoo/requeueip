@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	oapiv1 "github.com/iiiceoo/requeueip/oapi/v1"
@@ -135,6 +136,7 @@ func (a *allocator) retrieveExistingIPs(ctx context.Context, pod *corev1.Pod, op
 		ctx,
 		&riList,
 		client.MatchingLabels{consts.LabelRefPodUID: string(pod.UID)},
+		client.InNamespace(pod.Namespace),
 		client.UnsafeDisableDeepCopy,
 	); err != nil {
 		return nil, err
@@ -261,6 +263,7 @@ func (a *allocator) assign(
 	if assignment.v4 > 0 {
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			ips, err := a.assignIPs(ctx, net.IPv4, assignment.v4, pod, workload)
 			if err != nil {
 				errCh <- err
@@ -272,6 +275,7 @@ func (a *allocator) assign(
 	if assignment.v6 > 0 {
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			ips, err := a.assignIPs(ctx, net.IPv6, assignment.v6, pod, workload)
 			if err != nil {
 				errCh <- err
@@ -330,6 +334,7 @@ func (a *allocator) assignIPs(
 		i := i
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			ip, err := a.assignIP(ctx, pool, i, pod)
 			if err != nil {
 				errCh <- err
@@ -384,6 +389,7 @@ func (a *allocator) waitForIPPoolReady(
 				consts.LabelIPVersion:      version,
 				consts.LabelRefWorkloadUID: string(workload.GetUID()),
 			},
+			client.InNamespace(workload.GetNamespace()),
 			client.Limit(1),
 			client.UnsafeDisableDeepCopy,
 		); err != nil {
@@ -434,6 +440,7 @@ func (a *allocator) assignIP(
 	// Avoid creating IP obj repeatedly.
 	ri := &requeueipv1.IP{
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: pool.Namespace,
 			Labels: map[string]string{
 				consts.LabelIPVersion: pool.Spec.Version,
 				consts.LabelRefIPPool: pool.Name,
@@ -441,11 +448,17 @@ func (a *allocator) assignIP(
 			},
 		},
 	}
+	if err := controllerutil.SetControllerReference(pod, ri, a.client.Scheme()); err != nil {
+		return nil, err
+	}
 
 	// Try to retry as much as possible, the cost of cmdAdd failure far outweighs
 	// the cost of retry.
 	if err := retry.OnError(retry.DefaultBackoff, apierrors.IsAlreadyExists, func() error {
-		if err := a.client.Get(ctx, types.NamespacedName{Name: pool.Name}, pool); err != nil {
+		if err := a.client.Get(ctx, types.NamespacedName{
+			Namespace: pool.Namespace,
+			Name:      pool.Name,
+		}, pool); err != nil {
 			return err
 		}
 

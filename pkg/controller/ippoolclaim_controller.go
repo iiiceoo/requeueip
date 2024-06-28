@@ -542,6 +542,7 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 		i := i
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			ipNet, err := net.NameToCIDR(pool.Spec.Version, blocks[i].Name)
 			if err != nil {
 				errCh <- err

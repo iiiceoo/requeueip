@@ -60,6 +60,9 @@ func run(ctx context.Context) error {
 	}
 	logger := zapr.NewLogger(z)
 
+	// In order to get logger from ctx in the backend of RequeueIP daemon.
+	ctrl.SetLogger(logger)
+
 	// TODO(iiiceoo): Set up Pyroscope client (push mode).
 	if arg.pyroscopeAddr != "" {
 		logger.Info("Start Pyroscope profiler", "mode", "push", "server", arg.pyroscopeAddr)

@@ -48,15 +48,21 @@ components:
           type: boolean
         ipv6:
           type: boolean
+        containerID:
+          type: string
         podNamespace:
           type: string
         podName:
           type: string
+        podUID:
+          type: string
       required:
       - ipv4
       - ipv6
+      - containerID
       - podNamespace
       - podName
+      - podUID
     Result:
       type: object
       properties:

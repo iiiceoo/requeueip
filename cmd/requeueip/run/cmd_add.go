@@ -91,7 +91,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	result, err := assign(ctx, &envs, ipamConf)
+	result, err := assign(ctx, args, &envs, ipamConf)
 	if err != nil {
 		logger.Error(nil, err.Error())
 		return err
@@ -101,7 +101,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 	return types.PrintResult(result, confVersion)
 }
 
-func assign(ctx context.Context, envs *IPAMEnvArgs, ipamConfig *IPAMConfig) (*current.Result, error) {
+func assign(ctx context.Context, args *skel.CmdArgs, envs *IPAMEnvArgs, ipamConfig *IPAMConfig) (*current.Result, error) {
 	client, err := newUnixClient(ipamConfig.UnixSocketPath)
 	if err != nil {
 		return nil, err
@@ -116,15 +116,17 @@ func assign(ctx context.Context, envs *IPAMEnvArgs, ipamConfig *IPAMConfig) (*cu
 	resp, err := client.CmdAddWithResponse(ctx, oapiv1.CmdAddJSONRequestBody{
 		Ipv4:         *ipamConfig.IPv4,
 		Ipv6:         *ipamConfig.IPv6,
+		ContainerID:  args.ContainerID,
 		PodNamespace: string(envs.K8S_POD_NAMESPACE),
 		PodName:      string(envs.K8S_POD_NAME),
+		PodUID:       string(envs.K8S_POD_UID),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("failed to assign IP addresses: %s", *resp.JSONDefault)
+		return nil, errors.New(*resp.JSONDefault)
 	}
 
 	result := &current.Result{
