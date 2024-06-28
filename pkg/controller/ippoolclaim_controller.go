@@ -334,7 +334,14 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 		return newErrorRequeueAfter(10 * time.Second)
 	}
 
-	alloc.pool.Spec.Ranges = alloc.pool.Status.Free
+	// Do not get the free IPRanges of IPPool in getIPBlockAllocation, as the status
+	// of IPPool may not be ready yet.
+	free, err := iprange.Parse(alloc.pool.Status.Free...)
+	if err != nil {
+		return err
+	}
+
+	alloc.pool.Spec.Ranges = alloc.poolRanges.Diff(free).Strings()
 	if err := r.client.Update(ctx, alloc.pool); err != nil {
 		return err
 	}
