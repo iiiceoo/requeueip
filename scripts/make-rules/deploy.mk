@@ -16,7 +16,8 @@ KIND := kind
 HELM := helm
 KUBECTL := kubectl
 
-NODE_IMAGE ?= kindest/node:v1.29.2
+NODE_VERSION ?= 1.29.2
+NODE_IMAGE ?= kindest/node:$(NODE_VERSION)
 KIND_CONFIG ?= scripts/kind/kind-config.yaml
 
 .PHONY: deploy.kind
@@ -29,7 +30,7 @@ deploy.clean: kind.clean
 kind.cluster: tools.verify.kind
 	$(eval EXIST := $(shell kind get clusters | grep -q $(GIT_BRANCH) && echo 0 || echo 1))
 	@if [ $(EXIST) -ne 1 ]; then \
-		echo "kind cluster $(GIT_BRANCH) already exist";  exit 0; \
+		echo "kind cluster $(GIT_BRANCH) already exist"; exit 0; \
 	else \
 		$(KIND) create cluster --image $(NODE_IMAGE) --config $(KIND_CONFIG) --name $(GIT_BRANCH); \
 	fi

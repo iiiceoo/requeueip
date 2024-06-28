@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+HELM_REPO ?=
 CHARTS_DIR := charts/requeueip
 
 .PHONY: release.tag.%
@@ -24,6 +25,10 @@ release.tag.%: tools.verify.gsemver
 
 .PHONY: release.verify
 release.verify: charts.tpl.verify charts.app.verify charts.docs.verify
+
+.PHONY: release.push
+release.push:
+	$(HELM) push $(CHARTS_DIR) $(HELM_REPO)
 
 .PHONY: charts.docs
 charts.docs: tools.verify.helm-docs
