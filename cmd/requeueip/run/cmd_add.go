@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/containernetworking/cni/pkg/skel"
@@ -34,7 +36,7 @@ import (
 	oapiv1 "github.com/iiiceoo/requeueip/oapi/v1"
 )
 
-func CmdAdd(args *skel.CmdArgs) (err error) {
+func CmdAdd(args *skel.CmdArgs) error {
 	ipamConf, confVersion, err := LoadIPAMConfig(args.StdinData, args.Args)
 	if err != nil {
 		return fmt.Errorf("failed to load IPAM config: %v", err)
@@ -42,6 +44,16 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 	if !*ipamConf.IPv4 && !*ipamConf.IPv6 {
 		return errors.New("both IPv4 and IPv6 are disabled")
+	}
+
+	logDir := filepath.Dir(ipamConf.LogPath)
+	if _, err := os.Stat(logDir); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to stat log dir %s: %v", logDir, err)
+		}
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			return fmt.Errorf("failed to create log dir %s: %v", logDir, err)
+		}
 	}
 
 	zc := zap.Config{
