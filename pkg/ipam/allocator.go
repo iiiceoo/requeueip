@@ -208,7 +208,7 @@ func (a *allocator) retrieveExistingIPs(
 	if err := a.client.List(
 		ctx,
 		&riList,
-		client.MatchingLabels{consts.LabelRefPodUID: string(pod.UID)},
+		client.MatchingLabels(labels),
 		client.InNamespace(pod.Namespace),
 		client.UnsafeDisableDeepCopy,
 	); err != nil {

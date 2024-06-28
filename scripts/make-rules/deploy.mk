@@ -16,7 +16,7 @@ KIND := kind
 HELM := helm
 KUBECTL := kubectl
 
-NODE_VERSION ?= 1.29.2
+NODE_VERSION ?= v1.29.2
 NODE_IMAGE ?= kindest/node:$(NODE_VERSION)
 KIND_CONFIG ?= scripts/kind/kind-config.yaml
 

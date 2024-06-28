@@ -79,7 +79,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "requeueip.multus.selectorLabels" . | nindent 6 }}
+        {{- include "requeueip.multus.selectorLabels" . | nindent 8 }}
     spec:
       hostNetwork: true
       hostPID: true

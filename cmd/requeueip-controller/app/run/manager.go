@@ -130,6 +130,13 @@ func run(ctx context.Context) error {
 		return err
 	}
 
+	// Set up GC controller.
+	if err := controller.NewGCReconciler(
+		mgr.GetClient(),
+	).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
 	// Add liveness and readiness probe endpoint.
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		return err

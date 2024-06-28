@@ -58,8 +58,8 @@ func (r *statefulSetReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// The workload has been deleted, do nothing, OwnerReference will ensure
-	// that the relevant IPPoolClaims are recycled.
+	// The workload has been deleted, do nothing, OwnerReference will ensure that
+	// the relevant IPPoolClaims are recycled.
 	if !sts.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}

@@ -58,8 +58,8 @@ func (r *deploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// The workload has been deleted, do nothing, OwnerReference will ensure
-	// that the relevant IPPoolClaims are recycled.
+	// The workload has been deleted, do nothing, OwnerReference will ensure that
+	// the relevant IPPoolClaims are recycled.
 	if !deploy.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
