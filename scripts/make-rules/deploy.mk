@@ -20,6 +20,9 @@ NODE_VERSION ?= 1.29.2
 NODE_IMAGE ?= kindest/node:$(NODE_VERSION)
 KIND_CONFIG ?= scripts/kind/kind-config.yaml
 
+CALICO_VERSION ?= v3.28.x
+CALICO_MANIFESTS ?= scripts/kind/calico/calico-$(CALICO_VERSION).yaml
+
 .PHONY: deploy.kind
 deploy.kind: kind.charts
 
@@ -33,6 +36,10 @@ kind.cluster: tools.verify.kind
 		echo "kind cluster $(GIT_BRANCH) already exist"; exit 0; \
 	else \
 		$(KIND) create cluster --image $(NODE_IMAGE) --config $(KIND_CONFIG) --name $(GIT_BRANCH); \
+		echo "Install Calico $(CALICO_VERSION) ..."; \
+		$(KUBECTL) apply -f $(CALICO_MANIFESTS); \
+		echo "Wait all calico-node Pods ready ..."; \
+		$(KUBECTL) wait po -l k8s-app=calico-node -n kube-system --for=condition=Ready --timeout 2m; \
 	fi
 
 .PHONY: kind.clean
