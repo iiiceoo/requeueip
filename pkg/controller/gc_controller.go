@@ -133,21 +133,22 @@ func (r *gcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
-		if !ok {
-			if err := r.client.DeleteAllOf(
-				ctx,
-				&requeueipv1.IP{},
-				client.MatchingLabels{
-					consts.LabelRefSTSUID: string(sts.UID),
-					consts.LabelRefPod:    podName,
-				},
-				client.InNamespace(sts.Namespace),
-			); err != nil {
-				return ctrl.Result{}, err
-			}
-			deleted[podName] = true
+		if ok {
+			continue
 		}
+
+		if err := r.client.DeleteAllOf(
+			ctx,
+			&requeueipv1.IP{},
+			client.MatchingLabels{
+				consts.LabelRefSTSUID: string(sts.UID),
+				consts.LabelRefPod:    podName,
+			},
+			client.InNamespace(sts.Namespace),
+		); err != nil {
+			return ctrl.Result{}, err
+		}
+		deleted[podName] = true
 	}
 
 	return ctrl.Result{}, nil
