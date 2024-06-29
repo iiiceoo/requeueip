@@ -141,7 +141,7 @@ func (r *claimReconciler) getOrMarkIPPool(ctx context.Context, claim *requeueipv
 
 	subnet, err := r.selectSubnet(ctx, claim)
 	if err != nil {
-		return nil, fmt.Errorf("failed to select Subnet from candidates: %v", err)
+		return nil, fmt.Errorf("failed to select Subnet from candidates: %w", err)
 	}
 
 	newRP := &requeueipv1.IPPool{
