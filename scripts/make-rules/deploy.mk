@@ -63,7 +63,7 @@ kind.charts: kind.cluster
 .PHONY: kind.smoke
 kind.smoke:
 	@echo "==> Apply somke workloads"
+	@$(KUBECTL) --context kind-$(GIT_BRANCH) delete po -l smoke --ignore-not-found
 	@$(KUBECTL) --context kind-$(GIT_BRANCH) apply -f scripts/kind/smoke
-	@$(KUBECTL) --context kind-$(GIT_BRANCH) delete po -l smoke
 	@echo "Wait all static IP Pods ready ...";
 	@$(KUBECTL) wait po -l smoke --for=condition=Ready --timeout 1m
