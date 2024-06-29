@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smoke-deploy
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  selector:
+    matchLabels:
+      smoke: deploy
+  template:
+    metadata:
+      annotations:
+        v1.multus-cni.io/default-network: kube-system/calico-requeueip
+        requeueip.io/ipv4-subnets: smoke-ipv4-subnet
+        requeueip.io/ipv6-subnets: smoke-ipv6-subnet
+      labels:
+        smoke: deploy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80

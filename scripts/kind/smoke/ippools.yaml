@@ -1,0 +1,29 @@
+apiVersion: crd.projectcalico.org/v1
+kind: IPPool
+metadata:
+  name: smoke-ipv4-ippool
+spec:
+  allowedUses:
+  - Workload
+  cidr: 192.168.1.0/24
+  blockSize: 26
+  disabled: true
+  nodeSelector: '!all()'
+  ipipMode: Never
+  vxlanMode: Never
+  natOutgoing: true
+---
+apiVersion: crd.projectcalico.org/v1
+kind: IPPool
+metadata:
+  name: smoke-ipv6-ippool
+spec:
+  allowedUses:
+  - Workload
+  cidr: fd00:192:168::100/120
+  blockSize: 122
+  disabled: true
+  nodeSelector: '!all()'
+  ipipMode: Never
+  vxlanMode: Never
+  natOutgoing: true

@@ -54,7 +54,16 @@ kind.use-context:
 kind.charts: kind.cluster
 	@$(HELM) upgrade requeueip $(CHARTS_DIR) -n kube-system \
 	--wait --timeout 1m --install --kube-context kind-$(GIT_BRANCH) \
+	-f scripts/kind/smoke/values/nad.yaml \
 	--set daemon.image.registry=$(REGISTRY_PREFIX) \
 	--set daemon.image.tag=$(VERSION) \
 	--set controller.image.registry=$(REGISTRY_PREFIX) \
 	--set controller.image.tag=$(VERSION)
+
+.PHONY: kind.smoke
+kind.smoke:
+	@echo "==> Apply somke workloads"
+	@$(KUBECTL) --context kind-$(GIT_BRANCH) apply -f scripts/kind/smoke
+	@$(KUBECTL) --context kind-$(GIT_BRANCH) delete po -l smoke
+	@echo "Wait all static IP Pods ready ...";
+	@$(KUBECTL) wait po -l smoke --for=condition=Ready --timeout 1m

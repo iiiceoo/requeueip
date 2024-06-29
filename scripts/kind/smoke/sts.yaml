@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: smoke-sts-svc
+spec:
+  clusterIP: None
+  selector:
+    smoke: sts
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: smoke-sts 
+spec:
+  serviceName: smoke-sts-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      smoke: sts
+  template:
+    metadata:
+      annotations:
+        v1.multus-cni.io/default-network: kube-system/calico-requeueip
+        requeueip.io/ipv4-subnets: smoke-ipv4-subnet
+        requeueip.io/ipv6-subnets: smoke-ipv6-subnet
+      labels:
+        smoke: sts
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80

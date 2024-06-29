@@ -53,14 +53,15 @@ func NameToCIDR(version, name string) (*net.IPNet, error) {
 		}
 		cidr = strings.Join(parts[:4], ".") + "/" + parts[4]
 	case IPv6:
-		cidr = strings.ReplaceAll(name, "-", ":")
+		index := strings.LastIndex(name, "-")
+		cidr = strings.ReplaceAll(name[:index], "-", ":") + "/" + name[index+1:]
 	default:
 		return nil, fmt.Errorf("invalid IP version: %s", version)
 	}
 
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s CIDR %s: %w", version, cidr, err)
+		return nil, err
 	}
 
 	return ipNet, nil

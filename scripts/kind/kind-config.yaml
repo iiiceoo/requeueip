@@ -5,4 +5,5 @@ nodes:
 - role: worker
 networking:
   disableDefaultCNI: true
-  podSubnet: 192.168.0.0/16
+  ipFamily: dual
+  podSubnet: 192.168.0.0/16,fd00:192:168::/64
