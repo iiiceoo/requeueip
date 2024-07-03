@@ -88,8 +88,8 @@ func (c *rpcClient) parseClaims(
 	return claims, nil
 }
 
-// ensureClaims updates IPPoolClaims with specified specs, or creates them
-// if they do not exist.
+// ensureClaims updates IPPoolClaims with specified specs, or creates them if
+// they do not exist.
 func (c *rpcClient) ensureClaims(ctx context.Context, specs []requeueipv1.IPPoolClaimSpec, object client.Object) error {
 	if len(specs) == 0 {
 		return nil
@@ -122,8 +122,8 @@ func (c *rpcClient) ensureClaims(ctx context.Context, specs []requeueipv1.IPPool
 	return nil
 }
 
-// ensureClaim updates IPPoolClaim with the specified spec, or creates it
-// if it does not exist.
+// ensureClaim updates IPPoolClaim with the specified spec, or creates it if it
+// does not exist.
 func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolClaimSpec, object client.Object) error {
 	// version + wordload UID can uniquely identify an IPPoolClaim.
 	h := fnv.New32a()
