@@ -1,6 +1,8 @@
 apiVersion: requeueip.io/v1
 kind: Subnet
 metadata:
+  annotations:
+    calico.requeueip.io/sync: ""
   name: smoke-ipv4-subnet
 spec:
   cidr: 192.168.1.0/24
@@ -8,6 +10,8 @@ spec:
 apiVersion: requeueip.io/v1
 kind: Subnet
 metadata:
+  annotations:
+    calico.requeueip.io/sync: ""
   name: smoke-ipv6-subnet
 spec:
   cidr: fd00:192:168::100/120

@@ -48,10 +48,9 @@ type gcReconciler struct {
 
 func (r *gcReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(
-			&appsv1.StatefulSet{},
-			builder.WithPredicates(StatefulSetReplicasDecreasedPredicate{}),
-		).
+		For(&appsv1.StatefulSet{}, builder.WithPredicates(
+			StatefulSetReplicasDecreasedPredicate{},
+		)).
 		Complete(r)
 }
 

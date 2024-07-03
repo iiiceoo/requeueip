@@ -52,3 +52,8 @@ const (
 	AnnoIPv4Subnets = RPrefix + "/" + "ipv4-subnets"
 	AnnoIPv6Subnets = RPrefix + "/" + "ipv6-subnets"
 )
+
+const (
+	calicoPrefix   = "calico" + "." + RPrefix
+	AnnoCalicoSYNC = calicoPrefix + "/" + "sync"
+)

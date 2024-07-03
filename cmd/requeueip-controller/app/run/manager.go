@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/go-logr/zapr"
+	calicov1 "github.com/tigera/operator/pkg/apis/crd.projectcalico.org/v1"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,6 +35,7 @@ import (
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
 	"github.com/iiiceoo/requeueip/pkg/controller"
+	"github.com/iiiceoo/requeueip/pkg/controller/calico"
 	"github.com/iiiceoo/requeueip/pkg/controller/workload"
 	rwebhook "github.com/iiiceoo/requeueip/pkg/webhook"
 )
@@ -42,6 +44,7 @@ var scheme = runtime.NewScheme()
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(calicov1.AddToScheme(scheme))
 	utilruntime.Must(requeueipv1.AddToScheme(scheme))
 }
 
@@ -132,6 +135,13 @@ func run(ctx context.Context) error {
 
 	// Set up GC controller.
 	if err := controller.NewGCReconciler(
+		mgr.GetClient(),
+	).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	// Set up Calico SYNC controller.
+	if err := calico.NewSYNCReconciler(
 		mgr.GetClient(),
 	).SetupWithManager(mgr); err != nil {
 		return err
