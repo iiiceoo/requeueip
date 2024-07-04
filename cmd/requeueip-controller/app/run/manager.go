@@ -111,6 +111,7 @@ func run(ctx context.Context) error {
 	}
 	if err := rwebhook.NewSubnetWebhooker(
 		mgr.GetClient(),
+		mgr.GetAPIReader(),
 	).SetupWebhookWithManager(mgr); err != nil {
 		return err
 	}

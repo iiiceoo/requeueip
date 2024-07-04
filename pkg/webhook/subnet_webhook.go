@@ -34,19 +34,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/iiiceoo/iprange"
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
 	rnet "github.com/iiiceoo/requeueip/pkg/net"
 )
 
-func NewSubnetWebhooker(c client.Client) *subnetWebhooker {
+func NewSubnetWebhooker(c client.Client, reader client.Reader) *subnetWebhooker {
 	return &subnetWebhooker{
 		client: c,
+		reader: reader,
 	}
 }
 
 type subnetWebhooker struct {
 	client client.Client
+	reader client.Reader
 }
 
 func (h *subnetWebhooker) SetupWebhookWithManager(mgr ctrl.Manager) error {
@@ -142,40 +145,40 @@ func (h *subnetWebhooker) ValidateDelete(ctx context.Context, obj runtime.Object
 	return nil, nil
 }
 
-func (h *subnetWebhooker) mutate(ctx context.Context, rn *requeueipv1.Subnet) error {
+func (h *subnetWebhooker) mutate(ctx context.Context, subnet *requeueipv1.Subnet) error {
 	logger := log.FromContext(ctx)
-	if !rn.DeletionTimestamp.IsZero() {
+	if !subnet.DeletionTimestamp.IsZero() {
 		logger.Info("Terminating Subnet")
 		return nil
 	}
 
-	if !controllerutil.ContainsFinalizer(rn, consts.RFinalizer) {
-		controllerutil.AddFinalizer(rn, consts.RFinalizer)
+	if !controllerutil.ContainsFinalizer(subnet, consts.RFinalizer) {
+		controllerutil.AddFinalizer(subnet, consts.RFinalizer)
 		logger.Info("Added finalizer", "finalizer", consts.RFinalizer)
 	}
 
-	if rn.Spec.Version == nil {
-		ip, _, err := net.ParseCIDR(rn.Spec.CIDR)
+	if subnet.Spec.Version == nil {
+		ip, _, err := net.ParseCIDR(subnet.Spec.CIDR)
 		if err != nil {
-			logger.Info("Skipped mutating", "cidr", rn.Spec.CIDR, "error", err)
+			logger.Info("Skipped mutating", "cidr", subnet.Spec.CIDR, "error", err)
 			return nil
 		}
 
 		if ip.To4() != nil {
-			rn.Spec.Version = ptr.To(rnet.IPv4)
+			subnet.Spec.Version = ptr.To(rnet.IPv4)
 		} else {
-			rn.Spec.Version = ptr.To(rnet.IPv6)
+			subnet.Spec.Version = ptr.To(rnet.IPv6)
 		}
-		logger.Info(fmt.Sprintf("Added %s", fieldVersion), "version", *rn.Spec.Version)
+		logger.Info(fmt.Sprintf("Added %s", fieldVersion), "version", *subnet.Spec.Version)
 	}
 
-	if rn.Spec.BlockSize == nil {
-		if *rn.Spec.Version == rnet.IPv4 {
-			rn.Spec.BlockSize = ptr.To(int32(30))
+	if subnet.Spec.BlockSize == nil {
+		if *subnet.Spec.Version == rnet.IPv4 {
+			subnet.Spec.BlockSize = ptr.To(int32(30))
 		} else {
-			rn.Spec.BlockSize = ptr.To(int32(126))
+			subnet.Spec.BlockSize = ptr.To(int32(126))
 		}
-		logger.Info(fmt.Sprintf("Added %s", fieldBlockSize), "blockSize", *rn.Spec.BlockSize)
+		logger.Info(fmt.Sprintf("Added %s", fieldBlockSize), "blockSize", *subnet.Spec.BlockSize)
 	}
 
 	return nil
@@ -185,57 +188,146 @@ var (
 	fieldVersion   *field.Path = field.NewPath("spec").Child("version")
 	fieldCIDR      *field.Path = field.NewPath("spec").Child("cidr")
 	fieldBlockSize *field.Path = field.NewPath("spec").Child("blockSize")
+	fieldFree      *field.Path = field.NewPath("status").Child("free")
 )
 
-func (h *subnetWebhooker) validateCreate(ctx context.Context, rn *requeueipv1.Subnet) field.ErrorList {
-	return validateSubnetSpec(rn)
+func (h *subnetWebhooker) validateCreate(ctx context.Context, subnet *requeueipv1.Subnet) field.ErrorList {
+	return h.validateSubnetSpec(ctx, subnet)
 }
 
-func (h *subnetWebhooker) validateUpdate(ctx context.Context, old, rn *requeueipv1.Subnet) field.ErrorList {
-	return validateSubnetSpec(rn)
-}
-
-func validateSubnetSpec(rn *requeueipv1.Subnet) field.ErrorList {
-	if err := validateCIDR(rn); err != nil {
-		return field.ErrorList{err}
+func (h *subnetWebhooker) validateUpdate(ctx context.Context, old, subnet *requeueipv1.Subnet) field.ErrorList {
+	if errs := h.validateSubnetSpec(ctx, subnet); len(errs) != 0 {
+		return errs
 	}
 
 	var errs field.ErrorList
-	if err := validateBlockSize(*rn.Spec.Version, *rn.Spec.BlockSize); err != nil {
+	if err := validateIPInUse(old, subnet); err != nil {
 		errs = append(errs, err)
 	}
 
 	return errs
 }
 
-func validateCIDR(rn *requeueipv1.Subnet) *field.Error {
-	ip, _, err := net.ParseCIDR(rn.Spec.CIDR)
+func (h *subnetWebhooker) validateSubnetSpec(ctx context.Context, subnet *requeueipv1.Subnet) field.ErrorList {
+	if err := h.validateCIDR(ctx, subnet); err != nil {
+		return field.ErrorList{err}
+	}
+
+	var errs field.ErrorList
+	if err := validateBlockSize(subnet); err != nil {
+		errs = append(errs, err)
+	}
+
+	return errs
+}
+
+func (h *subnetWebhooker) validateCIDR(ctx context.Context, subnet *requeueipv1.Subnet) *field.Error {
+	ip, cidr, err := net.ParseCIDR(subnet.Spec.CIDR)
 	if err != nil {
-		return field.Invalid(fieldCIDR, rn.Spec.CIDR, err.Error())
+		return field.Invalid(fieldCIDR, subnet.Spec.CIDR, err.Error())
+	}
+
+	if !ip.Equal(cidr.IP) {
+		return field.Invalid(fieldCIDR, subnet.Spec.CIDR, "is not a network address")
 	}
 
 	if ip.To4() != nil {
-		if *rn.Spec.Version != rnet.IPv4 {
-			return field.Invalid(fieldCIDR, rn.Spec.CIDR, "is not an IPv4 CIDR")
+		if *subnet.Spec.Version != rnet.IPv4 {
+			return field.Invalid(fieldCIDR, subnet.Spec.CIDR, "is not an IPv4 CIDR")
 		}
 	} else {
-		if *rn.Spec.Version != rnet.IPv6 {
-			return field.Invalid(fieldCIDR, rn.Spec.CIDR, "is not an IPv6 CIDR")
+		if *subnet.Spec.Version != rnet.IPv6 {
+			return field.Invalid(fieldCIDR, subnet.Spec.CIDR, "is not an IPv6 CIDR")
+		}
+	}
+
+	var rnList requeueipv1.SubnetList
+	if err := h.reader.List(ctx, &rnList); err != nil {
+		return field.InternalError(fieldCIDR, err)
+	}
+
+	for i := 0; i < len(rnList.Items); i++ {
+		rn := rnList.Items[i]
+		if rn.Name == subnet.Name {
+			continue
+		}
+
+		_, otherCIDR, err := net.ParseCIDR(rn.Spec.CIDR)
+		if err != nil {
+			return field.InternalError(fieldCIDR, err)
+		}
+
+		if cidr.Contains(otherCIDR.IP) || otherCIDR.Contains(cidr.IP) {
+			return field.Invalid(
+				fieldCIDR,
+				subnet.Spec.CIDR,
+				fmt.Sprintf("overlaps with Subnet %s which CIDR is %s", rn.Name, rn.Spec.CIDR),
+			)
 		}
 	}
 
 	return nil
 }
 
-func validateBlockSize(version string, blockSize int32) *field.Error {
-	if version == rnet.IPv4 {
-		if blockSize < 26 || blockSize > 32 {
-			return field.Forbidden(fieldBlockSize, "IPv4 block size must belong to [26, 32]")
+func validateBlockSize(subnet *requeueipv1.Subnet) *field.Error {
+	if *subnet.Spec.Version == rnet.IPv4 {
+		if *subnet.Spec.BlockSize < 26 || *subnet.Spec.BlockSize > 32 {
+			return field.Invalid(fieldBlockSize, *subnet.Spec.BlockSize, "must belong to [26, 32]")
 		}
 	} else {
-		if blockSize < 122 || blockSize > 128 {
-			return field.Forbidden(fieldBlockSize, "IPv6 block size must belong to [122, 128]")
+		if *subnet.Spec.BlockSize < 122 || *subnet.Spec.BlockSize > 128 {
+			return field.Invalid(fieldBlockSize, *subnet.Spec.BlockSize, "must belong to [122, 128]")
 		}
+	}
+
+	_, cidr, err := net.ParseCIDR(subnet.Spec.CIDR)
+	if err != nil {
+		return field.Invalid(fieldCIDR, subnet.Spec.CIDR, err.Error())
+	}
+
+	ones, _ := cidr.Mask.Size()
+	if int(*subnet.Spec.BlockSize) < ones {
+		return field.Invalid(
+			fieldBlockSize,
+			*subnet.Spec.BlockSize,
+			fmt.Sprintf("is smaller than the CIDR mask length %d", ones),
+		)
+	}
+
+	return nil
+}
+
+func validateIPInUse(old, subnet *requeueipv1.Subnet) *field.Error {
+	if subnet.Spec.CIDR == old.Spec.CIDR {
+		return nil
+	}
+
+	if subnet.Status.Free == nil {
+		return field.Forbidden(fieldCIDR, "CIDR should not be modified before Subnet is ready")
+	}
+
+	ranges, err := iprange.Parse(subnet.Spec.CIDR)
+	if err != nil {
+		return field.Invalid(fieldCIDR, subnet.Spec.CIDR, err.Error())
+	}
+	oldRanges, err := iprange.Parse(old.Spec.CIDR)
+	if err != nil {
+		return nil
+	}
+
+	reduce := oldRanges.Diff(ranges)
+	if reduce.Size().Sign() == 0 {
+		return nil
+	}
+
+	free, err := iprange.Parse(subnet.Status.Free...)
+	if err != nil {
+		return field.InternalError(fieldFree, err)
+	}
+
+	invalid := reduce.Diff(free)
+	if invalid.Size().Sign() > 0 {
+		return field.Forbidden(fieldCIDR, fmt.Sprintf("remove the Subnet IP ranges %s that are being used", invalid))
 	}
 
 	return nil
