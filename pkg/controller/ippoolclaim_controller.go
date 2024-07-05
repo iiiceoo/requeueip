@@ -67,8 +67,8 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Remove the IPPoolClaim when the owner workload does not exist or is
-	// terminating.
+	// Remove the auto-created IPPoolClaim when the owner workload does not exist or
+	// is terminating.
 	if !claim.DeletionTimestamp.IsZero() {
 		metadata, err := r.getOwnerMetadata(ctx, &claim)
 		if err != nil {
@@ -76,8 +76,10 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 
 		if metadata == nil || !metadata.DeletionTimestamp.IsZero() {
-			controllerutil.RemoveFinalizer(&claim, consts.RFinalizer)
-			return ctrl.Result{}, r.client.Update(ctx, &claim)
+			if controllerutil.RemoveFinalizer(&claim, consts.RFinalizer) {
+				return ctrl.Result{}, r.client.Update(ctx, &claim)
+			}
+			return ctrl.Result{}, nil
 		}
 	}
 
@@ -99,6 +101,10 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 // determine whether the owner is alive.
 func (r *claimReconciler) getOwnerMetadata(ctx context.Context, object client.Object) (*metav1.ObjectMeta, error) {
 	ref := metav1.GetControllerOf(object)
+	if ref == nil {
+		return nil, nil
+	}
+
 	metadata := &metav1.PartialObjectMetadata{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: ref.APIVersion,
@@ -144,15 +150,23 @@ func (r *claimReconciler) getOrMarkIPPool(ctx context.Context, claim *requeueipv
 		return nil, fmt.Errorf("failed to select Subnet from candidates: %w", err)
 	}
 
+	labels := map[string]string{
+		consts.LabelIPVersion: claim.Spec.Version,
+		consts.LabelRefSubnet: subnet.Name,
+	}
+
+	// Only auto-created IPPoolClaim requires setting the workload UID label, it
+	// will be used in the subsequent retrieval of auto-created IPPool.
+	workload := metav1.GetControllerOf(claim)
+	if workload != nil {
+		labels[consts.LabelRefWorkloadUID] = string(workload.UID)
+	}
+
 	newRP := &requeueipv1.IPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      claim.Name,
 			Namespace: claim.Namespace,
-			Labels: map[string]string{
-				consts.LabelIPVersion:      claim.Spec.Version,
-				consts.LabelRefSubnet:      subnet.Name,
-				consts.LabelRefWorkloadUID: string(metav1.GetControllerOf(claim).UID),
-			},
+			Labels:    labels,
 		},
 		Spec: requeueipv1.IPPoolSpec{
 			Version: claim.Spec.Version,

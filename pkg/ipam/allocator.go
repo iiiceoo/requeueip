@@ -24,6 +24,7 @@ import (
 	"math/big"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/iiiceoo/iprange"
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -325,18 +327,9 @@ func (a *allocator) assignIPs(
 	pod *corev1.Pod,
 	workload client.Object,
 ) ([]oapiv1.IPConfig, error) {
-	pool, err := a.waitForIPPoolReady(ctx, version, count, workload)
+	pool, err := a.selectIPPool(ctx, version, count, pod, workload)
 	if err != nil {
-		gvk := workload.GetObjectKind().GroupVersionKind()
-		return nil, fmt.Errorf(
-			"failed to get %s IPPool for %s/%s %s/%s: %v",
-			version,
-			gvk.GroupVersion().String(),
-			gvk.Kind,
-			workload.GetNamespace(),
-			workload.GetName(),
-			err,
-		)
+		return nil, err
 	}
 
 	var wg sync.WaitGroup
@@ -376,23 +369,113 @@ func (a *allocator) assignIPs(
 	return ips, nil
 }
 
-var errIPPoolNotReady = errors.New("IPPool is not ready")
+// selectIPPool gets the IPPool selected by the selection rules specified by Pod
+// annotations.
+func (a *allocator) selectIPPool(
+	ctx context.Context,
+	version string,
+	count int,
+	pod *corev1.Pod,
+	workload client.Object,
+) (*requeueipv1.IPPool, error) {
+	ap, as := consts.AnnoIPv4IPPools, consts.AnnoIPv4Subnets
+	if version == net.IPv6 {
+		ap, as = consts.AnnoIPv6IPPools, consts.AnnoIPv6Subnets
+	}
 
-// isIPPoolNotReady asserts whether the err is errIPPoolNotReady.
-func isIPPoolNotReady(err error) bool {
-	return errors.Is(err, errIPPoolNotReady)
+	// Currently only supports specifying a single IPPool.
+	poolName, ok := pod.Annotations[ap]
+	if ok {
+		pool, err := a.waitForIPPoolReady(ctx, pod.Namespace, poolName, count)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the specified %s IPPool %s: %v", version, poolName, err)
+		}
+		return pool, nil
+	}
+
+	// Do not perform excessive validation on subnets value here, it should be the
+	// responsibility of the controller.
+	_, ok = pod.Annotations[as]
+	if !ok {
+		return nil, errors.New("no IPPool selection rule is specified")
+	}
+
+	pool, err := a.waitForAutoIPPoolReady(ctx, version, count, workload)
+	if err != nil {
+		gvk := workload.GetObjectKind().GroupVersionKind()
+		return nil, fmt.Errorf(
+			"failed to get auto-created %s IPPool for %s/%s %s/%s: %v",
+			version,
+			gvk.GroupVersion().String(),
+			gvk.Kind,
+			workload.GetNamespace(),
+			workload.GetName(),
+			err,
+		)
+	}
+
+	return pool, nil
+}
+
+var backoff = wait.Backoff{
+	Steps:    5,
+	Duration: 10 * time.Millisecond,
+	Factor:   5.0,
+	Jitter:   0.1,
+	Cap:      2 * time.Second,
+}
+
+var (
+	errUnreadyIPPool   = errors.New("unready IPPool")
+	errInsufficientIPs = errors.New("available IP addresses are insufficient")
+)
+
+// isUnreadyIPPool asserts whether the err is errUnreadyIPPool.
+func isUnreadyIPPool(err error) bool {
+	return errors.Is(err, errUnreadyIPPool)
 }
 
 // waitForIPPoolReady waits for IPPool to be ready until it can assign IP
 // addresses for Pod.
-func (a *allocator) waitForIPPoolReady(
+func (a *allocator) waitForIPPoolReady(ctx context.Context, namespace, name string, count int) (*requeueipv1.IPPool, error) {
+	var rp requeueipv1.IPPool
+	if err := retry.OnError(backoff, isUnreadyIPPool, func() error {
+		if err := a.client.Get(ctx, types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}, &rp); err != nil {
+			return err
+		}
+
+		if rp.Status.Count == nil {
+			return errUnreadyIPPool
+		}
+
+		free, err := strconv.Atoi(rp.Status.Count.Free)
+		if err != nil {
+			return err
+		}
+		if free < count {
+			return fmt.Errorf("%w: %w, expected %d but found only %d", errUnreadyIPPool, errInsufficientIPs, count, free)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &rp, nil
+}
+
+// waitForAutoIPPoolReady waits for auto-created IPPool to be ready until it can
+// assign IP addresses for Pod.
+func (a *allocator) waitForAutoIPPoolReady(
 	ctx context.Context,
 	version string,
 	count int,
 	workload client.Object,
 ) (*requeueipv1.IPPool, error) {
 	var rp *requeueipv1.IPPool
-	if err := retry.OnError(retry.DefaultBackoff, isIPPoolNotReady, func() error {
+	if err := retry.OnError(backoff, isUnreadyIPPool, func() error {
 		var rpList requeueipv1.IPPoolList
 		if err := a.client.List(
 			ctx,
@@ -409,12 +492,12 @@ func (a *allocator) waitForIPPoolReady(
 		}
 
 		if len(rpList.Items) == 0 {
-			return fmt.Errorf("%w: resource not found", errIPPoolNotReady)
+			return errUnreadyIPPool
 		}
 
 		rp = &rpList.Items[0]
 		if rp.Status.Count == nil {
-			return errIPPoolNotReady
+			return errUnreadyIPPool
 		}
 
 		free, err := strconv.Atoi(rp.Status.Count.Free)
@@ -422,11 +505,7 @@ func (a *allocator) waitForIPPoolReady(
 			return err
 		}
 		if free < count {
-			return fmt.Errorf(
-				"%w: IPPool %s has insufficient available IP addresses; expected %d but found only %d",
-				errIPPoolNotReady,
-				rp.Name, count, free,
-			)
+			return fmt.Errorf("%w: %w, expected %d but found only %d", errUnreadyIPPool, errInsufficientIPs, count, free)
 		}
 		return nil
 	}); err != nil {
@@ -434,6 +513,12 @@ func (a *allocator) waitForIPPoolReady(
 	}
 
 	return rp, nil
+}
+
+// isAlreadyExists asserts whether the action of assigning IP address needs to
+// be retried.
+func isAlreadyExists(err error) bool {
+	return apierrors.IsAlreadyExists(err) || errors.Is(err, errInsufficientIPs)
 }
 
 // assignIP assigns an IP address to Pod from IPPool.
@@ -478,7 +563,7 @@ func (a *allocator) assignIP(
 
 	// Try to retry as much as possible, the cost of cmdAdd failure far outweighs
 	// the cost of retry.
-	if err := retry.OnError(retry.DefaultBackoff, apierrors.IsAlreadyExists, func() error {
+	if err := retry.OnError(backoff, isAlreadyExists, func() error {
 		if err := a.client.Get(ctx, types.NamespacedName{
 			Namespace: pool.Namespace,
 			Name:      pool.Name,
@@ -491,7 +576,13 @@ func (a *allocator) assignIP(
 			return err
 		}
 
-		index := new(big.Int).Mod(big.NewInt(int64(hash)), free.Size())
+		// Divide by 0 panic in concurrent case.
+		size := free.Size()
+		if size.Sign() == 0 {
+			return fmt.Errorf("%w, IPPool %s is exhausted", errInsufficientIPs, pool.Name)
+		}
+
+		index := new(big.Int).Mod(big.NewInt(int64(hash)), size)
 		index.Add(index, consts.BigInt[1])
 
 		iter := free.IPIterator()
