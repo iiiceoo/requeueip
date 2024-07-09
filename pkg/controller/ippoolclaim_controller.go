@@ -345,7 +345,7 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 	// Wait for the replica of workload to converge before scaling down IPPool.
 	// The default DeletionGracePeriodSeconds for Pod is 30 seconds.
 	if used != alloc.replicas {
-		return newErrorRequeueAfter(10 * time.Second)
+		return newErrorRequeueAfter(5 * time.Second)
 	}
 
 	// Do not get the free IPRanges of IPPool in getIPBlockAllocation, as the status

@@ -418,11 +418,10 @@ func (a *allocator) selectIPPool(
 }
 
 var backoff = wait.Backoff{
-	Steps:    5,
+	Steps:    6,
 	Duration: 10 * time.Millisecond,
 	Factor:   5.0,
 	Jitter:   0.1,
-	Cap:      2 * time.Second,
 }
 
 var (
