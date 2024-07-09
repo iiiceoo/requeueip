@@ -23,10 +23,6 @@ spec:
       jsonPath: .spec.version
       name: VERSION
       type: string
-    - description: The kind of owner workload.
-      jsonPath: .metadata.ownerReferences[0].kind
-      name: WORKLOAD
-      type: string
     - description: The total number of IP addresses of the IPPool to be synced.
       jsonPath: .spec.replicas
       name: REPLICAS

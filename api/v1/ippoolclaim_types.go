@@ -44,7 +44,6 @@ type IPPoolClaimSpec struct {
 
 // +kubebuilder:resource:categories={requeueip},path="ippoolclaims",scope="Namespaced",shortName={rpc},singular="ippoolclaim"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="The IP version of the IPPool to be synced.",name="VERSION",type=string
-// +kubebuilder:printcolumn:JSONPath=".metadata.ownerReferences[0].kind",description="The kind of owner workload.",name="WORKLOAD",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.replicas",description="The total number of IP addresses of the IPPool to be synced.",name="REPLICAS",type=integer
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPoolClaim.",name="AGE",type=date
 // +kubebuilder:object:root=true

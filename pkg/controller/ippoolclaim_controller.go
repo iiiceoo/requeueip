@@ -26,14 +26,15 @@ import (
 	"time"
 
 	"github.com/iiiceoo/iprange"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
@@ -41,16 +42,18 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
-func NewIPPoolClaimReconciler(c client.Client, reader client.Reader) *claimReconciler {
+func NewIPPoolClaimReconciler(c client.Client, reader client.Reader, recorder record.EventRecorder) *claimReconciler {
 	return &claimReconciler{
-		client: c,
-		reader: reader,
+		client:   c,
+		reader:   reader,
+		recorder: recorder,
 	}
 }
 
 type claimReconciler struct {
-	client client.Client
-	reader client.Reader
+	client   client.Client
+	reader   client.Reader
+	recorder record.EventRecorder
 }
 
 func (r *claimReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -187,15 +190,21 @@ func (r *claimReconciler) getOrMarkIPPool(ctx context.Context, claim *requeueipv
 
 // selectSubnet returns the first Subnet with sufficient IPBlocks.
 func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.IPPoolClaim) (*requeueipv1.Subnet, error) {
-	logger := log.FromContext(ctx)
 	for _, s := range claim.Spec.Subnets {
 		var rn requeueipv1.Subnet
 		if err := r.client.Get(ctx, types.NamespacedName{Name: s}, &rn); err != nil {
 			if apierrors.IsNotFound(err) {
-				logger.Info("Candidate Subnet does not exist", "name", s)
+				msg := fmt.Sprintf("Candidate Subnet %s does not exist", s)
+				r.recorder.Eventf(claim, corev1.EventTypeWarning, "SubnetNotFound", msg)
 				continue
 			}
 			return nil, err
+		}
+
+		if *rn.Spec.Version != claim.Spec.Version {
+			msg := fmt.Sprintf("Candidate Subnet %s is %s but claimed as %s", rn.Name, *rn.Spec.Version, claim.Spec.Version)
+			r.recorder.Eventf(claim, corev1.EventTypeWarning, "SubnetVersionMismatch", msg)
+			continue
 		}
 
 		// Do not skip the Subnet that is not ready, but try again later, respecting the
@@ -217,7 +226,7 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 		}
 	}
 
-	return nil, fmt.Errorf("no Subnets are available in %s: %w", claim.Spec.Subnets, errInsufficientIPBlocks)
+	return nil, fmt.Errorf("no Subnets are available in %s: invalid Subnet or %w", claim.Spec.Subnets, errInsufficientIPBlocks)
 }
 
 // scale scales the size of the IPPool up or down to workload replicas.

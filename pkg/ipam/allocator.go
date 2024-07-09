@@ -386,7 +386,7 @@ func (a *allocator) selectIPPool(
 	// Currently only supports specifying a single IPPool.
 	poolName, ok := pod.Annotations[ap]
 	if ok {
-		pool, err := a.waitForIPPoolReady(ctx, pod.Namespace, poolName, count)
+		pool, err := a.waitForIPPoolReady(ctx, version, pod.Namespace, poolName, count)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get the specified %s IPPool %s: %v", version, poolName, err)
 		}
@@ -436,7 +436,7 @@ func isUnreadyIPPool(err error) bool {
 
 // waitForIPPoolReady waits for IPPool to be ready until it can assign IP
 // addresses for Pod.
-func (a *allocator) waitForIPPoolReady(ctx context.Context, namespace, name string, count int) (*requeueipv1.IPPool, error) {
+func (a *allocator) waitForIPPoolReady(ctx context.Context, version, namespace, name string, count int) (*requeueipv1.IPPool, error) {
 	var rp requeueipv1.IPPool
 	if err := retry.OnError(backoff, isUnreadyIPPool, func() error {
 		if err := a.client.Get(ctx, types.NamespacedName{
@@ -444,6 +444,10 @@ func (a *allocator) waitForIPPoolReady(ctx context.Context, namespace, name stri
 			Name:      name,
 		}, &rp); err != nil {
 			return err
+		}
+
+		if rp.Spec.Version != version {
+			return fmt.Errorf("try to assign %s addresses from %s IPPool %s", version, rp.Spec.Version, rp.Name)
 		}
 
 		if rp.Status.Count == nil {

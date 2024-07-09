@@ -33,6 +33,11 @@ const (
 )
 
 const (
+	RDaemon     = APP + "d"
+	RController = APP + "-" + "controller"
+)
+
+const (
 	refPrefix           = "reference" + "." + RPrefix
 	LabelRefNamespace   = refPrefix + "/" + "ns"
 	LabelRefSubnet      = refPrefix + "/" + "subnet"
