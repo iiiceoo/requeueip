@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	str2duration "github.com/xhit/go-str2duration/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,6 +56,10 @@ func (c *rpcClient) parseClaims(
 	annotations map[string]string,
 	replicas int32,
 ) ([]requeueipv1.IPPoolClaimSpec, error) {
+	if annotations == nil {
+		return nil, nil
+	}
+
 	v4Str := annotations[consts.AnnoIPv4Subnets]
 	v6Str := annotations[consts.AnnoIPv6Subnets]
 	if v4Str == "" && v6Str == "" {
@@ -65,23 +70,35 @@ func (c *rpcClient) parseClaims(
 		v4Str = ns.Annotations[consts.AnnoIPv4Subnets]
 		v6Str = ns.Annotations[consts.AnnoIPv6Subnets]
 	}
-
 	v4Subnets := parseArray(v4Str)
 	v6Subnets := parseArray(v6Str)
+
+	// Bypassing the validation of auto-created IPPoolClaims through the webhook to
+	// prevent it from becoming a performance bottleneck.
+	delay := annotations[consts.AnnoScaleDownDelay]
+	if delay == "" {
+		delay = "0"
+	}
+	_, err := str2duration.ParseDuration(delay)
+	if err != nil {
+		return nil, err
+	}
 
 	var claims []requeueipv1.IPPoolClaimSpec
 	if len(v4Subnets) != 0 {
 		claims = append(claims, requeueipv1.IPPoolClaimSpec{
-			Version:  net.IPv4,
-			Subnets:  v4Subnets,
-			Replicas: replicas,
+			Version:        net.IPv4,
+			Subnets:        v4Subnets,
+			Replicas:       replicas,
+			ScaleDownDelay: &delay,
 		})
 	}
 	if len(v6Subnets) != 0 {
 		claims = append(claims, requeueipv1.IPPoolClaimSpec{
-			Version:  net.IPv6,
-			Subnets:  v6Subnets,
-			Replicas: replicas,
+			Version:        net.IPv6,
+			Subnets:        v6Subnets,
+			Replicas:       replicas,
+			ScaleDownDelay: &delay,
 		})
 	}
 
@@ -91,10 +108,6 @@ func (c *rpcClient) parseClaims(
 // ensureClaims updates IPPoolClaims with specified specs, or creates them if
 // they do not exist.
 func (c *rpcClient) ensureClaims(ctx context.Context, specs []requeueipv1.IPPoolClaimSpec, object client.Object) error {
-	if len(specs) == 0 {
-		return nil
-	}
-
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(specs))
 	for i := 0; i < len(specs); i++ {
