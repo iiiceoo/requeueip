@@ -436,7 +436,11 @@ func isUnreadyIPPool(err error) bool {
 
 // waitForIPPoolReady waits for IPPool to be ready until it can assign IP
 // addresses for Pod.
-func (a *allocator) waitForIPPoolReady(ctx context.Context, version, namespace, name string, count int) (*requeueipv1.IPPool, error) {
+func (a *allocator) waitForIPPoolReady(
+	ctx context.Context,
+	version, namespace, name string,
+	count int,
+) (*requeueipv1.IPPool, error) {
 	var rp requeueipv1.IPPool
 	if err := retry.OnError(backoff, isUnreadyIPPool, func() error {
 		if err := a.client.Get(ctx, types.NamespacedName{
@@ -532,12 +536,6 @@ func (a *allocator) assignIP(
 	pod *corev1.Pod,
 	workload client.Object,
 ) (*oapiv1.IPConfig, error) {
-	// version + Pod UID + num can uniquely identify an IP address.
-	h := fnv.New32a()
-	id := fmt.Sprintf("%s-%s-%d", pool.Spec.Version, pod.UID, num)
-	h.Write([]byte(id))
-	hash := h.Sum32()
-
 	// Avoid creating IP obj repeatedly.
 	ri := &requeueipv1.IP{
 		ObjectMeta: metav1.ObjectMeta{
@@ -549,17 +547,34 @@ func (a *allocator) assignIP(
 		},
 	}
 
-	// The IP addresses used by Pod controlled by StatefulSet will be asynchronously
-	// released by the controller.
+	// Index ID prefix.
+	h := fnv.New32a()
+	id := fmt.Sprintf("%s-%d", pool.Spec.Version, num)
+
 	var owner metav1.Object
 	if workload.GetObjectKind().GroupVersionKind().Kind == kindStatefulSet {
+		// The ID is generated using the Pod name instead of the UID to ensure that a
+		// STS Pod will always assign the same IP addresses in case of IPPool delayed
+		// scaling down.
+		id = fmt.Sprintf("%s-%s", id, pod.Name)
+
+		// The IP addresses used by Pod controlled by StatefulSet will be asynchronously
+		// released by the controller. Ensure that the death of Pod does not result in the
+		// release of IP addresses.
 		owner = workload
 		ri.Labels[consts.LabelRefSTSUID] = string(workload.GetUID())
 		ri.Labels[consts.LabelRefPod] = pod.Name
 	} else {
+		// version + num + Pod UID can uniquely identify an IP address.
+		id = fmt.Sprintf("%s-%s", id, pod.UID)
+
+		// GC IP addresses.
 		owner = pod
 		ri.Labels[consts.LabelRefPodUID] = string(pod.UID)
 	}
+
+	h.Write([]byte(id))
+	hash := h.Sum32()
 	if err := controllerutil.SetControllerReference(owner, ri, a.client.Scheme()); err != nil {
 		return nil, err
 	}

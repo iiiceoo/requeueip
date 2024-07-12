@@ -40,20 +40,52 @@ type IPPoolClaimSpec struct {
 	// The total number of IP addresses of the IPPool to be synced. It should
 	// always be consistent with the replica of the owner workload.
 	Replicas int32 `json:"replicas"`
+
+	// +kubebuilder:default="0"
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Optional
+
+	// The delay for IPPool scaling down. Support format like "1w2d6h3ns" (1 week
+	// 2 days 6 hours and 3 nanoseconds). Default to "0" means disabled.
+	ScaleDownDelay *string `json:"scaleDownDelay,omitempty"`
+}
+
+// IPPoolClaimStatus defines the observed state of IPPoolClaim.
+type IPPoolClaimStatus struct {
+	// +kubebuilder:validation:Optional
+
+	// The Subnet selected from the candidate Subnets.
+	Subnet *string `json:"subnet,omitempty"`
+
+	// +kubebuilder:validation:Optional
+
+	// The current size of the IPPool created based on the claim.
+	PoolSize *int32 `json:"poolSize,omitempty"`
+
+	// +kubebuilder:validation:Optional
+
+	// The next available time for scaling down. Nil indicates that ScaleDownDelay
+	// is disabled or there is not much waste in the IPPool.
+	NextScaleDownTime *metav1.Time `json:"nextScaleDownTime,omitempty"`
 }
 
 // +kubebuilder:resource:categories={requeueip},path="ippoolclaims",scope="Namespaced",shortName={rpc},singular="ippoolclaim"
 // +kubebuilder:printcolumn:JSONPath=".spec.version",description="The IP version of the IPPool to be synced.",name="VERSION",type=string
 // +kubebuilder:printcolumn:JSONPath=".spec.replicas",description="The total number of IP addresses of the IPPool to be synced.",name="REPLICAS",type=integer
+// +kubebuilder:printcolumn:JSONPath=".status.subnet",description="The Subnet selected from the candidate Subnets.",name="SUBNET",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.poolSize",description="The current size of the IPPool created based on the claim.",name="POOL-SIZE",type=integer
+// +kubebuilder:printcolumn:JSONPath=".spec.scaleDownDelay",description="The delay for IPPool scaling down.",name="SCALE-DOWN-DELAY",type=string
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="The age of IPPoolClaim.",name="AGE",type=date
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // IPPoolClaim is the Schema for the IPPoolClaims API.
 type IPPoolClaim struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec IPPoolClaimSpec `json:"spec,omitempty"`
+	Spec   IPPoolClaimSpec   `json:"spec,omitempty"`
+	Status IPPoolClaimStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

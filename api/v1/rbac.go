@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // +kubebuilder:rbac:groups=requeueip.io,resources=subnets;ipblocks;ippoolclaims;ippools;ips,verbs=get;list;watch;create;update;patch;delete;deletecollection
-// +kubebuilder:rbac:groups=requeueip.io,resources=subnets/status;ippools/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=requeueip.io,resources=subnets/status;ippoolclaims/status;ippools/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apps,resources=replicasets;deployments;statefulsets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces;pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch;delete

@@ -54,11 +54,9 @@ const (
 const LabelIPVersion = RPrefix + "/" + "ip-version"
 
 const (
-	AnnoIPv4Subnets = RPrefix + "/" + "ipv4-subnets"
-	AnnoIPv6Subnets = RPrefix + "/" + "ipv6-subnets"
-)
-
-const (
-	AnnoIPv4IPPools = RPrefix + "/" + "ipv4-pools"
-	AnnoIPv6IPPools = RPrefix + "/" + "ipv6-pools"
+	AnnoIPv4Subnets    = RPrefix + "/" + "ipv4-subnets"
+	AnnoIPv6Subnets    = RPrefix + "/" + "ipv6-subnets"
+	AnnoIPv4IPPools    = RPrefix + "/" + "ipv4-pools"
+	AnnoIPv6IPPools    = RPrefix + "/" + "ipv6-pools"
+	AnnoScaleDownDelay = RPrefix + "/" + "scale-down-delay"
 )

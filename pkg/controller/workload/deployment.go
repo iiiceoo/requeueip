@@ -42,10 +42,7 @@ type deploymentReconciler struct {
 func (r *deploymentReconciler) setupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.Deployment{}, builder.WithPredicates(
-			predicate.Or(
-				predicate.AnnotationChangedPredicate{},
-				predicate.GenerationChangedPredicate{},
-			),
+			predicate.GenerationChangedPredicate{},
 		)).
 		Complete(r)
 }
@@ -72,6 +69,10 @@ func (r *deploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if len(claims) == 0 {
+		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, r.rpcClient.ensureClaims(ctx, claims, &deploy)
