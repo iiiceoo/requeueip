@@ -78,9 +78,9 @@ spec:
               scaleDownDelay:
                 default: "0"
                 description: |-
-                  The delay for IPPool scaling down. Support format like "1w2d6h3ns" (1 week
-                  2 days 6 hours and 3 nanoseconds). Default to "0" means disabled.
-                minLength: 1
+                  The delay for IPPool scaling down. Support format like "1w2d6h3s" (1 week
+                  2 days 6 hours and 3 seconds). Default to "0" means disabled.
+                pattern: ^(?:(\d+w|\d+d|\d+h|\d+m|\d+s)+|0)$
                 type: string
               subnets:
                 description: List of candidate Subnet names for IP address assignments.

@@ -136,6 +136,7 @@ func (r *gcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			continue
 		}
 
+		// TODO(iiiceoo): Wait until Pod no longer exists.
 		if err := r.client.DeleteAllOf(
 			ctx,
 			&requeueipv1.IP{},

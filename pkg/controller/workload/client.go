@@ -73,8 +73,6 @@ func (c *rpcClient) parseClaims(
 	v4Subnets := parseArray(v4Str)
 	v6Subnets := parseArray(v6Str)
 
-	// Bypassing the validation of auto-created IPPoolClaims through the webhook to
-	// prevent it from becoming a performance bottleneck.
 	delay := annotations[consts.AnnoScaleDownDelay]
 	if delay == "" {
 		delay = "0"

@@ -42,11 +42,11 @@ type IPPoolClaimSpec struct {
 	Replicas int32 `json:"replicas"`
 
 	// +kubebuilder:default="0"
-	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^(?:(\d+w|\d+d|\d+h|\d+m|\d+s)+|0)$`
 	// +kubebuilder:validation:Optional
 
-	// The delay for IPPool scaling down. Support format like "1w2d6h3ns" (1 week
-	// 2 days 6 hours and 3 nanoseconds). Default to "0" means disabled.
+	// The delay for IPPool scaling down. Support format like "1w2d6h3s" (1 week
+	// 2 days 6 hours and 3 seconds). Default to "0" means disabled.
 	ScaleDownDelay *string `json:"scaleDownDelay,omitempty"`
 }
 
