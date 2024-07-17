@@ -5,8 +5,5 @@ metadata:
   name: {{ .Values.multus.nad.name }}
   namespace: kube-system
 spec:
-  config: |-
-    {{- with .Values.multus.nad.config }}
-    {{- toJson . | nindent 4}}
-    {{- end }}
+  config: {{ .Values.multus.nad.config | quote }}
 {{- end -}}

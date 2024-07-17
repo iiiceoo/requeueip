@@ -1,25 +1,35 @@
 multus:
   nad:
-    config:
-      name: static-network
-      cniVersion: 0.3.1
-      plugins:
-      - type: calico
-        log_level: info
-        log_file_path: /var/log/calico/cni/cni.log
-        datastore_type: kubernetes
-        ipam:
-          type: requeueip
-          ipv4: true
-          ipv6: true
-        policy:
-          type: k8s
-        kubernetes:
-          kubeconfig: /etc/cni/net.d/calico-kubeconfig
-      - type: portmap
-        snat: true
-        capabilities:
-          portMappings: true
-      - type: bandwidth
-        capabilities:
-          bandwidth: true
+    config: |-
+      {
+        "name": "static-network",
+        "cniVersion": "0.3.1",
+        "plugins": [
+          {
+            "type": "calico",
+            "log_level": "info",
+            "log_file_path": "/var/log/calico/cni/cni.log",
+            "datastore_type": "kubernetes",
+            "ipam": {
+                "type": "requeueip",
+                "ipv4": true,
+                "ipv6": true
+            },
+            "policy": {
+                "type": "k8s"
+            },
+            "kubernetes": {
+                "kubeconfig": "/etc/cni/net.d/calico-kubeconfig"
+            }
+          },
+          {
+            "type": "portmap",
+            "snat": true,
+            "capabilities": {"portMappings": true}
+          },
+          {
+            "type": "bandwidth",
+            "capabilities": {"bandwidth": true}
+          }
+        ]
+      }

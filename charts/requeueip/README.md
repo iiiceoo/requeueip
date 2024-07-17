@@ -72,22 +72,7 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | multus.image.repository | string | `"multus-cni"` |  |
 | multus.image.tag | string | `"snapshot-thick"` |  |
 | multus.imagePullSecrets | list | `[]` |  |
-| multus.nad.config.cniVersion | string | `"0.3.1"` |  |
-| multus.nad.config.name | string | `"static-network"` |  |
-| multus.nad.config.plugins[0].datastore_type | string | `"kubernetes"` |  |
-| multus.nad.config.plugins[0].ipam.ipv4 | bool | `true` |  |
-| multus.nad.config.plugins[0].ipam.ipv6 | bool | `false` |  |
-| multus.nad.config.plugins[0].ipam.type | string | `"requeueip"` |  |
-| multus.nad.config.plugins[0].kubernetes.kubeconfig | string | `"/etc/cni/net.d/calico-kubeconfig"` |  |
-| multus.nad.config.plugins[0].log_file_path | string | `"/var/log/calico/cni/cni.log"` |  |
-| multus.nad.config.plugins[0].log_level | string | `"info"` |  |
-| multus.nad.config.plugins[0].policy.type | string | `"k8s"` |  |
-| multus.nad.config.plugins[0].type | string | `"calico"` |  |
-| multus.nad.config.plugins[1].capabilities.portMappings | bool | `true` |  |
-| multus.nad.config.plugins[1].snat | bool | `true` |  |
-| multus.nad.config.plugins[1].type | string | `"portmap"` |  |
-| multus.nad.config.plugins[2].capabilities.bandwidth | bool | `true` |  |
-| multus.nad.config.plugins[2].type | string | `"bandwidth"` |  |
+| multus.nad.config | string | `"{\n  \"name\": \"static-network\",\n  \"cniVersion\": \"0.3.1\",\n  \"plugins\": [\n    {\n      \"type\": \"calico\",\n      \"log_level\": \"info\",\n      \"log_file_path\": \"/var/log/calico/cni/cni.log\",\n      \"datastore_type\": \"kubernetes\",\n      \"ipam\": {\n          \"type\": \"requeueip\",\n          \"ipv4\": true,\n          \"ipv6\": false\n      },\n      \"policy\": {\n          \"type\": \"k8s\"\n      },\n      \"kubernetes\": {\n          \"kubeconfig\": \"/etc/cni/net.d/calico-kubeconfig\"\n      }\n    },\n    {\n      \"type\": \"portmap\",\n      \"snat\": true,\n      \"capabilities\": {\"portMappings\": true}\n    },\n    {\n      \"type\": \"bandwidth\",\n      \"capabilities\": {\"bandwidth\": true}\n    }\n  ]\n}"` |  |
 | multus.nad.name | string | `"calico-requeueip"` |  |
 | multus.resources.limits.cpu | string | `"2000m"` |  |
 | multus.resources.limits.memory | string | `"1024Mi"` |  |
