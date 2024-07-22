@@ -32,6 +32,7 @@ import (
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
+	"github.com/iiiceoo/requeueip/pkg/metrics"
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
@@ -106,27 +107,38 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	free := total.DeepCopy().Diff(used)
 
 	// Update Subnet status if its current status has changed.
-	count := new(big.Int)
 	step, err := net.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	totalCount := new(big.Int).Div(total.Size(), step)
+	usedCount := new(big.Int).Div(used.Size(), step)
 	status := &requeueipv1.SubnetStatus{
 		Free: free.Strings(),
 		BlockCount: &requeueipv1.BlockCount{
-			Total: count.Div(total.Size(), step).String(),
-			Used:  count.Div(used.Size(), step).String(),
-			Free:  count.Div(free.Size(), step).String(),
+			Total: totalCount.String(),
+			Used:  usedCount.String(),
+			Free:  new(big.Int).Div(free.Size(), step).String(),
 		},
 	}
 
 	if reflect.DeepEqual(status, &rn.Status) {
 		return ctrl.Result{}, nil
 	}
-	rn.Status = *status
 
-	return ctrl.Result{}, r.client.Status().Update(ctx, &rn)
+	old := rn.DeepCopy()
+	rn.Status = *status
+	if err := r.client.Status().Patch(ctx, &rn, client.MergeFrom(old)); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Set Subnet metrics.
+	blockSize := strconv.Itoa(int(*rn.Spec.BlockSize))
+	metrics.SubnetBlockTotal(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(totalCount.Int64()))
+	metrics.SubnetBlockUsage(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(usedCount.Int64()))
+
+	return ctrl.Result{}, nil
 }
 
 // cleanUpSubnet removes Subnet's finalizer when it is not referenced by any

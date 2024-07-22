@@ -31,6 +31,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	oapiv1 "github.com/iiiceoo/requeueip/oapi/v1"
@@ -80,6 +81,7 @@ func run(ctx context.Context) error {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Logger:                 logger,
 		Scheme:                 scheme,
+		Metrics:                metricsserver.Options{BindAddress: "0"},
 		HealthProbeBindAddress: arg.probeAddr,
 	})
 	if err != nil {

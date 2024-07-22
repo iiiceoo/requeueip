@@ -42,6 +42,7 @@ import (
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
+	"github.com/iiiceoo/requeueip/pkg/metrics"
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
@@ -114,10 +115,32 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if reflect.DeepEqual(status, &claim.Status) {
 		return ctrl.Result{}, nil
 	}
+
 	old := claim.DeepCopy()
 	claim.Status = *status
+	if err := r.client.Status().Patch(ctx, &claim, client.MergeFrom(old)); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	return ctrl.Result{}, r.client.Status().Patch(ctx, &claim, client.MergeFrom(old))
+	// Set IPPoolClaim metrics.
+	ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
+	owner := metav1.GetControllerOf(&claim)
+	if owner != nil {
+		ownerKind = owner.Kind
+		ownerName = owner.Name
+		ownerUID = string(owner.UID)
+	}
+
+	metrics.IPPoolClaimReplicas(
+		claim.Namespace, claim.Name, claim.Spec.Version,
+		*claim.Status.Subnet, ownerKind, ownerName, ownerUID,
+	).Set(float64(claim.Spec.Replicas))
+	metrics.IPPoolClaimPoolSize(
+		claim.Namespace, claim.Name, claim.Spec.Version,
+		*claim.Status.Subnet, ownerKind, ownerName, ownerUID,
+	).Set(float64(*claim.Status.PoolSize))
+
+	return ctrl.Result{}, nil
 }
 
 // getOwnerMetadata gets the metadata of owner resource. It is commonly used to
