@@ -78,7 +78,10 @@ func run(ctx context.Context) error {
 	logger.V(1).Info("Runtime config", "config", config)
 
 	logger.Info("Create controller-runtime manager")
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	kubeconfig := ctrl.GetConfigOrDie()
+	kubeconfig.Burst = 150
+	kubeconfig.QPS = 100
+	mgr, err := ctrl.NewManager(kubeconfig, ctrl.Options{
 		Logger:                 logger,
 		Scheme:                 scheme,
 		Metrics:                metricsserver.Options{BindAddress: "0"},
