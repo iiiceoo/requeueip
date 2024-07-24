@@ -136,7 +136,7 @@ func run(ctx context.Context) error {
 	}
 
 	// Set up GC controller.
-	if err := controller.NewGCReconciler(
+	if err := controller.NewSTSGCReconciler(
 		mgr.GetClient(),
 	).SetupWithManager(mgr); err != nil {
 		return err

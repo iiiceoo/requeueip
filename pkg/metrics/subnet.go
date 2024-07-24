@@ -55,3 +55,9 @@ func SubnetBlockTotal(name, version, cidr, blockSize string) prometheus.Gauge {
 func SubnetBlockUsage(name, version, cidr, blockSize string) prometheus.Gauge {
 	return blockUsageGauge.WithLabelValues(name, version, cidr, blockSize)
 }
+
+func DeleteSubnet(name string) {
+	labels := map[string]string{"name": name}
+	blockTotalGauge.DeletePartialMatch(labels)
+	blockUsageGauge.DeletePartialMatch(labels)
+}

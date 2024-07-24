@@ -83,9 +83,13 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 
 		if metadata == nil || !metadata.DeletionTimestamp.IsZero() {
-			if controllerutil.RemoveFinalizer(&claim, consts.RFinalizer) {
-				return ctrl.Result{}, r.client.Update(ctx, &claim)
+			controllerutil.RemoveFinalizer(&claim, consts.RFinalizer)
+			if err := r.client.Update(ctx, &claim); err != nil {
+				return ctrl.Result{}, err
 			}
+
+			// Delete IPPoolClaim metrics.
+			metrics.DeleteIPPoolClaim(claim.Namespace, claim.Name)
 			return ctrl.Result{}, nil
 		}
 	}

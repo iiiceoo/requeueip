@@ -176,5 +176,8 @@ func (r *subnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv
 		return false, err
 	}
 
+	// Delete Subnet metrics.
+	metrics.DeleteSubnet(subnet.Name)
+
 	return true, nil
 }

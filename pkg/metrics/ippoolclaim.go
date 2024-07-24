@@ -70,3 +70,12 @@ func IPPoolClaimPoolSize(namespace, name, version, subnet, ownerKind, ownerName,
 		ownerKind, ownerName, ownerUID,
 	)
 }
+
+func DeleteIPPoolClaim(namespace, name string) {
+	labels := map[string]string{
+		"namespace": namespace,
+		"name":      name,
+	}
+	replicasGauge.DeletePartialMatch(labels)
+	poolSizeGauge.DeletePartialMatch(labels)
+}

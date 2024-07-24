@@ -55,3 +55,12 @@ func IPPoolIPTotal(namespace, name, version, subnet string) prometheus.Gauge {
 func IPPoolIPUsage(namespace, name, version, subnet string) prometheus.Gauge {
 	return ipUsageGauge.WithLabelValues(namespace, name, version, subnet)
 }
+
+func DeleteIPPool(namespace, name string) {
+	labels := map[string]string{
+		"namespace": namespace,
+		"name":      name,
+	}
+	ipTotalGauge.DeletePartialMatch(labels)
+	ipUsageGauge.DeletePartialMatch(labels)
+}

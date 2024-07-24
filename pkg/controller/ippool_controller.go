@@ -22,7 +22,6 @@ import (
 	"strconv"
 
 	"github.com/iiiceoo/iprange"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -98,27 +97,6 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// Set IP metrics.
-	for i := 0; i < len(riList.Items); i++ {
-		ri := riList.Items[i]
-		version, pool := metrics.None, metrics.None
-		if v, ok := ri.Labels[consts.LabelIPVersion]; ok {
-			version = v
-		}
-		if p, ok := ri.Labels[consts.LabelRefIPPool]; ok {
-			pool = p
-		}
-
-		ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
-		owner := metav1.GetControllerOf(&ri)
-		if owner != nil {
-			ownerKind = owner.Kind
-			ownerName = owner.Name
-			ownerUID = string(owner.UID)
-		}
-		metrics.IPInfo(ri.Namespace, ri.Name, version, pool, ownerKind, ownerName, ownerUID).Set(1)
-	}
-
 	// Calculate the total, used, and available range of the IPPool.
 	total, err := iprange.Parse(rp.Spec.Ranges...)
 	if err != nil {
@@ -189,6 +167,9 @@ func (r *poolReconciler) cleanUpIPool(ctx context.Context, pool *requeueipv1.IPP
 	if err := r.client.Update(ctx, pool); err != nil {
 		return false, err
 	}
+
+	// Delete IPPool metrics.
+	metrics.DeleteIPPool(pool.Namespace, pool.Name)
 
 	return true, nil
 }

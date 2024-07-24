@@ -36,17 +36,17 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/consts"
 )
 
-func NewGCReconciler(c client.Client) *gcReconciler {
-	return &gcReconciler{
+func NewSTSGCReconciler(c client.Client) *stsGCReconciler {
+	return &stsGCReconciler{
 		client: c,
 	}
 }
 
-type gcReconciler struct {
+type stsGCReconciler struct {
 	client client.Client
 }
 
-func (r *gcReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *stsGCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1.StatefulSet{}, builder.WithPredicates(
 			StatefulSetReplicasDecreasedPredicate{},
@@ -80,9 +80,9 @@ func (StatefulSetReplicasDecreasedPredicate) Update(e event.UpdateEvent) bool {
 	return r < or
 }
 
-var _ reconcile.Reconciler = &gcReconciler{}
+var _ reconcile.Reconciler = &stsGCReconciler{}
 
-func (r *gcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var sts appsv1.StatefulSet
 	if err := r.client.Get(ctx, req.NamespacedName, &sts); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
