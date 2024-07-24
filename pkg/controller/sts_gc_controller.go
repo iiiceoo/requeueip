@@ -24,6 +24,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -34,6 +35,7 @@ import (
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
+	"github.com/iiiceoo/requeueip/pkg/metrics"
 )
 
 func NewSTSGCReconciler(c client.Client) *stsGCReconciler {
@@ -68,6 +70,9 @@ func (StatefulSetReplicasDecreasedPredicate) Update(e event.UpdateEvent) bool {
 
 	old := e.ObjectOld.(*appsv1.StatefulSet)
 	sts := e.ObjectNew.(*appsv1.StatefulSet)
+	if !sts.DeletionTimestamp.IsZero() {
+		return true
+	}
 
 	var or, r int32
 	if old.Spec.Replicas != nil {
@@ -85,12 +90,17 @@ var _ reconcile.Reconciler = &stsGCReconciler{}
 func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var sts appsv1.StatefulSet
 	if err := r.client.Get(ctx, req.NamespacedName, &sts); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			metrics.DeleteSTSIP(req.Namespace, req.Name)
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
 	}
 
 	// The StatefulSet has been deleted, do nothing, OwnerReference will ensure that
 	// the relevant IPs are recycled.
 	if !sts.DeletionTimestamp.IsZero() {
+		metrics.DeleteSTSIP(sts.Namespace, sts.Name)
 		return ctrl.Result{}, nil
 	}
 
