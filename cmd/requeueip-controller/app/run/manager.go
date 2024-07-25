@@ -135,8 +135,15 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	// Set up GC controller.
+	// Set up StatefulSet GC controller.
 	if err := controller.NewSTSGCReconciler(
+		mgr.GetClient(),
+	).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	// Set Pod GC controller.
+	if err := controller.NewPodGCReconciler(
 		mgr.GetClient(),
 	).SetupWithManager(mgr); err != nil {
 		return err

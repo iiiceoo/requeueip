@@ -45,16 +45,10 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
-const (
-	kindReplicaSet  = "ReplicaSet"
-	kindDeployment  = "Deployment"
-	kindStatefulSet = "StatefulSet"
-)
-
 var workloadSupports = []string{
-	appsv1.SchemeGroupVersion.String() + "/" + kindReplicaSet,
-	appsv1.SchemeGroupVersion.String() + "/" + kindDeployment,
-	appsv1.SchemeGroupVersion.String() + "/" + kindStatefulSet,
+	appsv1.SchemeGroupVersion.String() + "/" + consts.KindReplicaSet,
+	appsv1.SchemeGroupVersion.String() + "/" + consts.KindDeployment,
+	appsv1.SchemeGroupVersion.String() + "/" + consts.KindStatefulSet,
 }
 
 type Allocator interface {
@@ -141,7 +135,7 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 	}
 
 	var workload client.Object
-	if owner.Kind == kindStatefulSet {
+	if owner.Kind == consts.KindStatefulSet {
 		var sts appsv1.StatefulSet
 		if err := a.client.Get(ctx, types.NamespacedName{
 			Namespace: pod.Namespace,
@@ -152,7 +146,7 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 		workload = &sts
 	}
 
-	if owner.Kind == kindReplicaSet {
+	if owner.Kind == consts.KindReplicaSet {
 		var rs appsv1.ReplicaSet
 		if err := a.client.Get(ctx, types.NamespacedName{
 			Namespace: pod.Namespace,
@@ -196,7 +190,7 @@ func (a *allocator) retrieveExistingIPs(
 	options *Options,
 ) (*ipAssignment, error) {
 	labels := map[string]string{}
-	if workload.GetObjectKind().GroupVersionKind().Kind == kindStatefulSet {
+	if workload.GetObjectKind().GroupVersionKind().Kind == consts.KindStatefulSet {
 		labels[consts.LabelRefSTSUID] = string(workload.GetUID())
 		labels[consts.LabelRefPod] = pod.Name
 	} else {
@@ -552,7 +546,7 @@ func (a *allocator) assignIP(
 	id := fmt.Sprintf("%s-%d", pool.Spec.Version, num)
 
 	var owner metav1.Object
-	if workload.GetObjectKind().GroupVersionKind().Kind == kindStatefulSet {
+	if workload.GetObjectKind().GroupVersionKind().Kind == consts.KindStatefulSet {
 		// The ID is generated using the Pod name instead of the UID to ensure that a
 		// STS Pod will always assign the same IP addresses in case of IPPool delayed
 		// scaling down.

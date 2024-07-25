@@ -104,19 +104,12 @@ func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	annos := sts.Spec.Template.Annotations
-	_, v4Enabled := annos[consts.AnnoIPv4Subnets]
-	_, v6Enabled := annos[consts.AnnoIPv6Subnets]
-	if !v4Enabled && !v6Enabled {
-		var ns corev1.Namespace
-		if err := r.client.Get(ctx, types.NamespacedName{Name: sts.Namespace}, &ns); err != nil {
-			return ctrl.Result{}, err
-		}
-		_, v4Enabled = ns.Annotations[consts.AnnoIPv4Subnets]
-		_, v6Enabled = ns.Annotations[consts.AnnoIPv6Subnets]
-		if !v4Enabled && !v6Enabled {
-			return ctrl.Result{}, nil
-		}
+	ok, err := r.isRequeueIPSTS(ctx, &sts)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !ok {
+		return ctrl.Result{}, nil
 	}
 
 	var riList requeueipv1.IPList
@@ -162,6 +155,30 @@ func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// isRequeueIPSTS reports whether StatefulSet is using RequeueIP.
+func (r *stsGCReconciler) isRequeueIPSTS(ctx context.Context, sts *appsv1.StatefulSet) (bool, error) {
+	annos := sts.Spec.Template.Annotations
+	_, v4Subnet := annos[consts.AnnoIPv4Subnets]
+	_, v6Subnet := annos[consts.AnnoIPv6Subnets]
+	_, v4IPPool := annos[consts.AnnoIPv4IPPools]
+	_, v6IPPool := annos[consts.AnnoIPv6IPPools]
+
+	v4Enabled := v4Subnet || v4IPPool
+	v6Enabled := v6Subnet || v6IPPool
+	if v4Enabled || v6Enabled {
+		return true, nil
+	}
+
+	var ns corev1.Namespace
+	if err := r.client.Get(ctx, types.NamespacedName{Name: sts.Namespace}, &ns); err != nil {
+		return false, err
+	}
+	_, v4Enabled = ns.Annotations[consts.AnnoIPv4Subnets]
+	_, v6Enabled = ns.Annotations[consts.AnnoIPv6Subnets]
+
+	return v4Enabled || v6Enabled, nil
 }
 
 // isRunningSTSPod reports whether Pod is controlled by StatefulSet and does not

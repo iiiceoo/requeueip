@@ -52,7 +52,7 @@ func IPInfo(namespace, name, version, pool, ownerKind, ownerName, ownerUID strin
 
 func DeletePodIP(namespace, name string) {
 	labels := map[string]string{
-		"owner_kind": "Pod",
+		"owner_kind": consts.KindPod,
 		"namespace":  namespace,
 		"owner_name": name,
 	}
@@ -61,7 +61,7 @@ func DeletePodIP(namespace, name string) {
 
 func DeleteSTSIP(namespace, name string) {
 	labels := map[string]string{
-		"owner_kind": "StatefulSet",
+		"owner_kind": consts.KindStatefulSet,
 		"namespace":  namespace,
 		"owner_name": name,
 	}

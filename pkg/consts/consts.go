@@ -60,3 +60,10 @@ const (
 	AnnoIPv6IPPools    = RPrefix + "/" + "ipv6-pools"
 	AnnoScaleDownDelay = RPrefix + "/" + "scale-down-delay"
 )
+
+const (
+	KindReplicaSet  = "ReplicaSet"
+	KindDeployment  = "Deployment"
+	KindStatefulSet = "StatefulSet"
+	KindPod         = "Pod"
+)
