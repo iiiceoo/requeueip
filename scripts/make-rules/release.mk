@@ -19,8 +19,8 @@ CHARTS_DIR := charts/requeueip
 release.tag.%: tools.verify.gsemver
 	$(eval APP_VERSION := $(shell gsemver bump $*))
 	@echo "==> Update charts version to $(APP_VERSION)"
-	@sed -E -i 's?version: .?version: $(APP_VERSION)?g' $(CHARTS_DIR)/Chart.yaml
-	@sed -E -i 's?appVersion: .?appVersion: $(APP_VERSION)?g' $(CHARTS_DIR)/Chart.yaml
+	@sed -E -i 's?^version: .*?version: $(APP_VERSION)?g' $(CHARTS_DIR)/Chart.yaml
+	@sed -E -i 's?^appVersion: .*?appVersion: $(APP_VERSION)?g' $(CHARTS_DIR)/Chart.yaml
 	@$(MAKE) charts.docs
 
 .PHONY: release.verify

@@ -83,9 +83,11 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 
 		if metadata == nil || !metadata.DeletionTimestamp.IsZero() {
-			controllerutil.RemoveFinalizer(&claim, consts.RFinalizer)
-			if err := r.client.Update(ctx, &claim); err != nil {
-				return ctrl.Result{}, err
+			// The manually created IPPoolClaim does not have OwnerReference.
+			if controllerutil.RemoveFinalizer(&claim, consts.RFinalizer) {
+				if err := r.client.Update(ctx, &claim); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 
 			// Delete IPPoolClaim metrics.
@@ -167,6 +169,11 @@ func (r *claimReconciler) getOwnerMetadata(ctx context.Context, object client.Ob
 		Name:      ref.Name,
 	}, metadata); err != nil {
 		return nil, client.IgnoreNotFound(err)
+	}
+
+	// kubectl replace --force
+	if metadata.UID != ref.UID {
+		return nil, nil
 	}
 
 	return &metadata.ObjectMeta, nil
