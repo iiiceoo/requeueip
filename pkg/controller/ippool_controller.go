@@ -130,9 +130,13 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 	free := total.DeepCopy().Diff(used)
 
-	// Update IPPool status if its current status has changed.
-	totalSize := total.Size()
+	// Set IPPool metrics.
 	usedSize := used.Size()
+	totalSize := total.Size()
+	metrics.IPPoolIPTotal(rp.Namespace, rp.Name, rp.Spec.Version, rp.Spec.Subnet).Set(float64(totalSize.Int64()))
+	metrics.IPPoolIPUsage(rp.Namespace, rp.Name, rp.Spec.Version, rp.Spec.Subnet).Set(float64(usedSize.Int64()))
+
+	// Update IPPool status if its current status has changed.
 	status := &requeueipv1.IPPoolStatus{
 		Free: free.Strings(),
 		Count: &requeueipv1.Count{
@@ -145,18 +149,10 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if reflect.DeepEqual(status, &rp.Status) {
 		return ctrl.Result{}, nil
 	}
-
 	old := rp.DeepCopy()
 	rp.Status = *status
-	if err := r.client.Status().Patch(ctx, &rp, client.MergeFrom(old)); err != nil {
-		return ctrl.Result{}, err
-	}
 
-	// Set IPPool metrics.
-	metrics.IPPoolIPTotal(rp.Namespace, rp.Name, rp.Spec.Version, rp.Spec.Subnet).Set(float64(totalSize.Int64()))
-	metrics.IPPoolIPUsage(rp.Namespace, rp.Name, rp.Spec.Version, rp.Spec.Subnet).Set(float64(usedSize.Int64()))
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.client.Status().Patch(ctx, &rp, client.MergeFrom(old))
 }
 
 // cleanUpIPool removes IPPool's finalizer when it is not referenced by any IP

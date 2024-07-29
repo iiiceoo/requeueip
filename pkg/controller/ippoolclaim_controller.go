@@ -112,22 +112,6 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ignoreRequeue(err)
 	}
 
-	// Update IPPoolClaim status if its current status has changed.
-	status, err := getIPPoolClaimStatus(alloc, &claim)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get IPPoolClaim status: %v", err)
-	}
-
-	if reflect.DeepEqual(status, &claim.Status) {
-		return ctrl.Result{}, nil
-	}
-
-	old := claim.DeepCopy()
-	claim.Status = *status
-	if err := r.client.Status().Patch(ctx, &claim, client.MergeFrom(old)); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// Set IPPoolClaim metrics.
 	ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
 	owner := metav1.GetControllerOf(&claim)
@@ -146,7 +130,19 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		*claim.Status.Subnet, ownerKind, ownerName, ownerUID,
 	).Set(float64(*claim.Status.PoolSize))
 
-	return ctrl.Result{}, nil
+	// Update IPPoolClaim status if its current status has changed.
+	status, err := getIPPoolClaimStatus(alloc, &claim)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get IPPoolClaim status: %v", err)
+	}
+
+	if reflect.DeepEqual(status, &claim.Status) {
+		return ctrl.Result{}, nil
+	}
+	old := claim.DeepCopy()
+	claim.Status = *status
+
+	return ctrl.Result{}, r.client.Status().Patch(ctx, &claim, client.MergeFrom(old))
 }
 
 // getOwnerMetadata gets the metadata of owner resource. It is commonly used to

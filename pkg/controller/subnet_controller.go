@@ -106,14 +106,19 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	free := total.DeepCopy().Diff(used)
 
-	// Update Subnet status if its current status has changed.
 	step, err := net.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	// Set Subnet metrics.
 	totalCount := new(big.Int).Div(total.Size(), step)
 	usedCount := new(big.Int).Div(used.Size(), step)
+	blockSize := strconv.Itoa(int(*rn.Spec.BlockSize))
+	metrics.SubnetBlockTotal(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(totalCount.Int64()))
+	metrics.SubnetBlockUsage(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(usedCount.Int64()))
+
+	// Update Subnet status if its current status has changed.
 	status := &requeueipv1.SubnetStatus{
 		Free: free.Strings(),
 		BlockCount: &requeueipv1.BlockCount{
@@ -126,19 +131,10 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if reflect.DeepEqual(status, &rn.Status) {
 		return ctrl.Result{}, nil
 	}
-
 	old := rn.DeepCopy()
 	rn.Status = *status
-	if err := r.client.Status().Patch(ctx, &rn, client.MergeFrom(old)); err != nil {
-		return ctrl.Result{}, err
-	}
 
-	// Set Subnet metrics.
-	blockSize := strconv.Itoa(int(*rn.Spec.BlockSize))
-	metrics.SubnetBlockTotal(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(totalCount.Int64()))
-	metrics.SubnetBlockUsage(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(usedCount.Int64()))
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.client.Status().Patch(ctx, &rn, client.MergeFrom(old))
 }
 
 // cleanUpSubnet removes Subnet's finalizer when it is not referenced by any
