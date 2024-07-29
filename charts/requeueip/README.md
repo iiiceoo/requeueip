@@ -43,8 +43,6 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | daemon.livenessProbe.periodSeconds | int | `10` |  |
 | daemon.livenessProbe.successThreshold | int | `1` |  |
 | daemon.livenessProbe.timeoutSeconds | int | `1` |  |
-| daemon.metricsService.port | int | `8443` |  |
-| daemon.metricsService.type | string | `"ClusterIP"` |  |
 | daemon.readinessProbe.failureThreshold | int | `3` |  |
 | daemon.readinessProbe.initialDelaySeconds | int | `10` |  |
 | daemon.readinessProbe.periodSeconds | int | `10` |  |

@@ -99,9 +99,6 @@ daemon:
     timeoutSeconds: 1
     failureThreshold: 3
     successThreshold: 1
-  metricsService:
-    type: ClusterIP
-    port: 8443
 controller:
   replicas: 1
   image:

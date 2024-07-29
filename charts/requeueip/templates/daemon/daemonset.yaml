@@ -53,13 +53,6 @@ spec:
         args:
         - run
         - --socket={{ .Values.daemon.socket }}
-        ports:
-        - name: metrics
-          containerPort: 8443
-          protocol: TCP
-        - name: webhook
-          containerPort: 9443
-          protocol: TCP
         livenessProbe:
           httpGet:
             path: /healthz
