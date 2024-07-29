@@ -98,26 +98,8 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// Set IP metrics.
-	for i := 0; i < len(riList.Items); i++ {
-		ri := riList.Items[i]
-		version, pool := metrics.None, metrics.None
-		if v, ok := ri.Labels[consts.LabelIPVersion]; ok {
-			version = v
-		}
-		if p, ok := ri.Labels[consts.LabelRefIPPool]; ok {
-			pool = p
-		}
-
-		ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
-		owner := metav1.GetControllerOf(&ri)
-		if owner != nil {
-			ownerKind = owner.Kind
-			ownerName = owner.Name
-			ownerUID = string(owner.UID)
-		}
-		metrics.IPInfo(ri.Namespace, ri.Name, version, pool, ownerKind, ownerName, ownerUID).Set(1)
-	}
+	// Set custom IP metrics.
+	setIPMetrics(riList.Items)
 
 	// Calculate the total, used, and available range of the IPPool.
 	total, err := iprange.Parse(rp.Spec.Ranges...)
@@ -130,7 +112,7 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 	free := total.DeepCopy().Diff(used)
 
-	// Set IPPool metrics.
+	// Set custom IPPool metrics.
 	usedSize := used.Size()
 	totalSize := total.Size()
 	metrics.IPPoolIPTotal(rp.Namespace, rp.Name, rp.Spec.Version, rp.Spec.Subnet).Set(float64(totalSize.Int64()))
@@ -190,4 +172,27 @@ func (r *poolReconciler) cleanUpIPool(ctx context.Context, pool *requeueipv1.IPP
 	metrics.DeleteIPPool(pool.Namespace, pool.Name)
 
 	return true, nil
+}
+
+// setIPMetrics sets custom IP metrics.
+func setIPMetrics(ips []requeueipv1.IP) {
+	for i := 0; i < len(ips); i++ {
+		ri := &ips[i]
+		version, pool := metrics.None, metrics.None
+		if v, ok := ri.Labels[consts.LabelIPVersion]; ok {
+			version = v
+		}
+		if p, ok := ri.Labels[consts.LabelRefIPPool]; ok {
+			pool = p
+		}
+
+		ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
+		owner := metav1.GetControllerOf(ri)
+		if owner != nil {
+			ownerKind = owner.Kind
+			ownerName = owner.Name
+			ownerUID = string(owner.UID)
+		}
+		metrics.IPInfo(ri.Namespace, ri.Name, version, pool, ownerKind, ownerName, ownerUID).Set(1)
+	}
 }

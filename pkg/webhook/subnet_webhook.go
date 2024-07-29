@@ -247,7 +247,7 @@ func (h *subnetWebhooker) validateCIDR(ctx context.Context, subnet *requeueipv1.
 	}
 
 	for i := 0; i < len(rnList.Items); i++ {
-		rn := rnList.Items[i]
+		rn := &rnList.Items[i]
 		if rn.Name == subnet.Name {
 			continue
 		}

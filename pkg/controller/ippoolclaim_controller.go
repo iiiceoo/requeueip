@@ -112,23 +112,8 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ignoreRequeue(err)
 	}
 
-	// Set IPPoolClaim metrics.
-	ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
-	owner := metav1.GetControllerOf(&claim)
-	if owner != nil {
-		ownerKind = owner.Kind
-		ownerName = owner.Name
-		ownerUID = string(owner.UID)
-	}
-
-	metrics.IPPoolClaimReplicas(
-		claim.Namespace, claim.Name, claim.Spec.Version,
-		*claim.Status.Subnet, ownerKind, ownerName, ownerUID,
-	).Set(float64(claim.Spec.Replicas))
-	metrics.IPPoolClaimPoolSize(
-		claim.Namespace, claim.Name, claim.Spec.Version,
-		*claim.Status.Subnet, ownerKind, ownerName, ownerUID,
-	).Set(float64(*claim.Status.PoolSize))
+	// Set custom IPPoolClaim metrics.
+	setIPPoolClaimMetrics(&claim)
 
 	// Update IPPoolClaim status if its current status has changed.
 	status, err := getIPPoolClaimStatus(alloc, &claim)
@@ -669,6 +654,35 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 	}
 
 	return nil
+}
+
+// setIPPoolClaimMetrics sets custom IPPoolClaim metrics.
+func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim) {
+	ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
+	owner := metav1.GetControllerOf(claim)
+	if owner != nil {
+		ownerKind = owner.Kind
+		ownerName = owner.Name
+		ownerUID = string(owner.UID)
+	}
+
+	selectorSubnet := metrics.None
+	if claim.Status.Subnet != nil {
+		selectorSubnet = *claim.Status.Subnet
+	}
+	poolSize := float64(0)
+	if claim.Status.PoolSize != nil {
+		poolSize = float64(*claim.Status.PoolSize)
+	}
+
+	metrics.IPPoolClaimReplicas(
+		claim.Namespace, claim.Name, claim.Spec.Version,
+		selectorSubnet, ownerKind, ownerName, ownerUID,
+	).Set(float64(claim.Spec.Replicas))
+	metrics.IPPoolClaimPoolSize(
+		claim.Namespace, claim.Name, claim.Spec.Version,
+		selectorSubnet, ownerKind, ownerName, ownerUID,
+	).Set(poolSize)
 }
 
 // getLastScaleDownTime gets the current status of IPPoolClaim.

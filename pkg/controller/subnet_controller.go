@@ -111,7 +111,7 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// Set Subnet metrics.
+	// Set custom Subnet metrics.
 	totalCount := new(big.Int).Div(total.Size(), step)
 	usedCount := new(big.Int).Div(used.Size(), step)
 	blockSize := strconv.Itoa(int(*rn.Spec.BlockSize))
