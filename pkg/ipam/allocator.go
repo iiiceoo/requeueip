@@ -65,16 +65,14 @@ type Options struct {
 	IPv6 int
 }
 
-func NewAllocator(c client.Client, reader client.Reader) Allocator {
+func NewAllocator(c client.Client) Allocator {
 	return &allocator{
 		client: c,
-		reader: reader,
 	}
 }
 
 type allocator struct {
 	client client.Client
-	reader client.Reader
 }
 
 // ipAssignment contains the count of IPv4 and IPv6 addresses to be assigned
@@ -89,7 +87,7 @@ func (a *allocator) Get(ctx context.Context, namespace, podName string, options 
 	// Do not consider creating Informer for Pod in DaemonSet as it would cost
 	// a significant amount of memory.
 	var pod corev1.Pod
-	if err := a.reader.Get(ctx, types.NamespacedName{
+	if err := a.client.Get(ctx, types.NamespacedName{
 		Namespace: namespace,
 		Name:      podName,
 	}, &pod); err != nil {

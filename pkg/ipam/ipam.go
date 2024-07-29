@@ -26,9 +26,9 @@ import (
 	oapiv1 "github.com/iiiceoo/requeueip/oapi/v1"
 )
 
-func New(c client.Client, reader client.Reader) oapiv1.StrictServerInterface {
+func New(c client.Client) oapiv1.StrictServerInterface {
 	return &ipamService{
-		allocator: NewAllocator(c, reader),
+		allocator: NewAllocator(c),
 	}
 }
 

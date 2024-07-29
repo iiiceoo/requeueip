@@ -26,10 +26,12 @@ import (
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -82,8 +84,13 @@ func run(ctx context.Context) error {
 	kubeconfig.Burst = 150
 	kubeconfig.QPS = 100
 	mgr, err := ctrl.NewManager(kubeconfig, ctrl.Options{
-		Logger:                 logger,
-		Scheme:                 scheme,
+		Logger: logger,
+		Scheme: scheme,
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{&corev1.Pod{}},
+			},
+		},
 		Metrics:                metricsserver.Options{BindAddress: "0"},
 		HealthProbeBindAddress: arg.probeAddr,
 	})
@@ -106,10 +113,10 @@ func run(ctx context.Context) error {
 
 	logger.Info("Create IPAM HTTP Unix server")
 	server := &http.Server{
-		Handler: oapiv1.Handler(oapiv1.NewStrictHandler(ipam.New(
-			mgr.GetClient(),
-			mgr.GetAPIReader(),
-		), nil)),
+		Handler: oapiv1.Handler(oapiv1.NewStrictHandler(
+			ipam.New(mgr.GetClient()),
+			nil,
+		)),
 	}
 
 	listener, err := net.Listen("unix", arg.unixSocketPath)
