@@ -18,8 +18,8 @@ multus:
     pullPolicy: IfNotPresent
   resources:
     limits:
-      cpu: 2000m
-      memory: 1024Mi
+      cpu: "2"
+      memory: 1Gi
     requests:
       cpu: 250m
       memory: 128Mi
@@ -82,10 +82,10 @@ daemon:
   resources:
     limits:
       cpu: 500m
-      memory: 500Mi
+      memory: 1Gi
     requests:
       cpu: 100m
-      memory: 200Mi
+      memory: 256Mi
   imagePullSecrets: []
   livenessProbe:
     initialDelaySeconds: 5
@@ -108,11 +108,11 @@ controller:
     pullPolicy: IfNotPresent
   resources:
     limits:
-      cpu: 500m
-      memory: 500Mi
+      cpu: "1"
+      memory: 2Gi
     requests:
       cpu: 100m
-      memory: 200Mi
+      memory: 256Mi
   imagePullSecrets: []
   livenessProbe:
     initialDelaySeconds: 5

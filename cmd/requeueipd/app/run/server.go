@@ -88,6 +88,8 @@ func run(ctx context.Context) error {
 		Scheme: scheme,
 		Client: client.Options{
 			Cache: &client.CacheOptions{
+				// Do not consider creating Informer for Pod in DaemonSet as it would cost a
+				// significant amount of memory.
 				DisableFor: []client.Object{&corev1.Pod{}},
 			},
 		},

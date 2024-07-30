@@ -84,8 +84,6 @@ type ipAssignment struct {
 }
 
 func (a *allocator) Get(ctx context.Context, namespace, podName string, options *Options) ([]oapiv1.IPConfig, error) {
-	// Do not consider creating Informer for Pod in DaemonSet as it would cost
-	// a significant amount of memory.
 	var pod corev1.Pod
 	if err := a.client.Get(ctx, types.NamespacedName{
 		Namespace: namespace,
@@ -134,26 +132,36 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 
 	var workload client.Object
 	if owner.Kind == consts.KindStatefulSet {
-		var sts appsv1.StatefulSet
+		stsMeta := &metav1.PartialObjectMetadata{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: owner.APIVersion,
+				Kind:       owner.Kind,
+			},
+		}
 		if err := a.client.Get(ctx, types.NamespacedName{
 			Namespace: pod.Namespace,
 			Name:      owner.Name,
-		}, &sts); err != nil {
+		}, stsMeta); err != nil {
 			return nil, err
 		}
-		workload = &sts
+		workload = stsMeta
 	}
 
 	if owner.Kind == consts.KindReplicaSet {
-		var rs appsv1.ReplicaSet
+		rsMeta := &metav1.PartialObjectMetadata{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: owner.APIVersion,
+				Kind:       owner.Kind,
+			},
+		}
 		if err := a.client.Get(ctx, types.NamespacedName{
 			Namespace: pod.Namespace,
 			Name:      owner.Name,
-		}, &rs); err != nil {
+		}, rsMeta); err != nil {
 			return nil, err
 		}
 
-		owner := metav1.GetControllerOf(&rs)
+		owner := metav1.GetControllerOf(rsMeta)
 		if owner == nil {
 			return nil, fmt.Errorf("%v: %s", errUnsupportedWorkload, gvk)
 		}
@@ -163,14 +171,19 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 			return nil, fmt.Errorf("%v: %s", errUnsupportedWorkload, gvk)
 		}
 
-		var deploy appsv1.Deployment
+		deployMeta := &metav1.PartialObjectMetadata{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: owner.APIVersion,
+				Kind:       owner.Kind,
+			},
+		}
 		if err := a.client.Get(ctx, types.NamespacedName{
 			Namespace: pod.Namespace,
 			Name:      owner.Name,
-		}, &deploy); err != nil {
+		}, deployMeta); err != nil {
 			return nil, err
 		}
-		workload = &deploy
+		workload = deployMeta
 	}
 
 	if !workload.GetDeletionTimestamp().IsZero() {

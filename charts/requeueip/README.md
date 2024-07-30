@@ -29,10 +29,10 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | controller.readinessProbe.successThreshold | int | `1` |  |
 | controller.readinessProbe.timeoutSeconds | int | `1` |  |
 | controller.replicas | int | `1` |  |
-| controller.resources.limits.cpu | string | `"500m"` |  |
-| controller.resources.limits.memory | string | `"500Mi"` |  |
+| controller.resources.limits.cpu | string | `"1"` |  |
+| controller.resources.limits.memory | string | `"2Gi"` |  |
 | controller.resources.requests.cpu | string | `"100m"` |  |
-| controller.resources.requests.memory | string | `"200Mi"` |  |
+| controller.resources.requests.memory | string | `"256Mi"` |  |
 | daemon.image.pullPolicy | string | `"IfNotPresent"` |  |
 | daemon.image.registry | string | `"ghcr.io/requeueip"` |  |
 | daemon.image.repository | string | `"requeueipd"` |  |
@@ -49,9 +49,9 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | daemon.readinessProbe.successThreshold | int | `1` |  |
 | daemon.readinessProbe.timeoutSeconds | int | `1` |  |
 | daemon.resources.limits.cpu | string | `"500m"` |  |
-| daemon.resources.limits.memory | string | `"500Mi"` |  |
+| daemon.resources.limits.memory | string | `"1Gi"` |  |
 | daemon.resources.requests.cpu | string | `"100m"` |  |
-| daemon.resources.requests.memory | string | `"200Mi"` |  |
+| daemon.resources.requests.memory | string | `"256Mi"` |  |
 | daemon.socket | string | `"/var/run/requeueip/cni.sock"` |  |
 | daemon.updateStrategy.rollingUpdate.maxUnavailable | int | `1` |  |
 | daemon.updateStrategy.type | string | `"RollingUpdate"` |  |
@@ -72,8 +72,8 @@ RequeueIP is an IPAM CNI plugin that assigns static IP addresses for K8s workloa
 | multus.imagePullSecrets | list | `[]` |  |
 | multus.nad.config | string | `"{\n  \"name\": \"static-network\",\n  \"cniVersion\": \"0.3.1\",\n  \"plugins\": [\n    {\n      \"type\": \"calico\",\n      \"log_level\": \"info\",\n      \"log_file_path\": \"/var/log/calico/cni/cni.log\",\n      \"datastore_type\": \"kubernetes\",\n      \"ipam\": {\n          \"type\": \"requeueip\",\n          \"ipv4\": true,\n          \"ipv6\": false\n      },\n      \"policy\": {\n          \"type\": \"k8s\"\n      },\n      \"kubernetes\": {\n          \"kubeconfig\": \"/etc/cni/net.d/calico-kubeconfig\"\n      }\n    },\n    {\n      \"type\": \"portmap\",\n      \"snat\": true,\n      \"capabilities\": {\"portMappings\": true}\n    },\n    {\n      \"type\": \"bandwidth\",\n      \"capabilities\": {\"bandwidth\": true}\n    }\n  ]\n}"` |  |
 | multus.nad.name | string | `"calico-requeueip"` |  |
-| multus.resources.limits.cpu | string | `"2000m"` |  |
-| multus.resources.limits.memory | string | `"1024Mi"` |  |
+| multus.resources.limits.cpu | string | `"2"` |  |
+| multus.resources.limits.memory | string | `"1Gi"` |  |
 | multus.resources.requests.cpu | string | `"250m"` |  |
 | multus.resources.requests.memory | string | `"128Mi"` |  |
 | multus.updateStrategy.rollingUpdate.maxUnavailable | int | `1` |  |
