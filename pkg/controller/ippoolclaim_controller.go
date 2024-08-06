@@ -113,7 +113,9 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	// Set custom IPPoolClaim metrics.
-	setIPPoolClaimMetrics(&claim)
+	if err := setIPPoolClaimMetrics(&claim); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Update IPPoolClaim status if its current status has changed.
 	status, err := getIPPoolClaimStatus(alloc, &claim)
@@ -657,7 +659,12 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 }
 
 // setIPPoolClaimMetrics sets custom IPPoolClaim metrics.
-func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim) {
+func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim) error {
+	delay, err := str2duration.ParseDuration(*claim.Spec.ScaleDownDelay)
+	if err != nil {
+		return err
+	}
+
 	ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
 	owner := metav1.GetControllerOf(claim)
 	if owner != nil {
@@ -666,10 +673,6 @@ func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim) {
 		ownerUID = string(owner.UID)
 	}
 
-	selectorSubnet := metrics.None
-	if claim.Status.Subnet != nil {
-		selectorSubnet = *claim.Status.Subnet
-	}
 	poolSize := float64(0)
 	if claim.Status.PoolSize != nil {
 		poolSize = float64(*claim.Status.PoolSize)
@@ -677,12 +680,24 @@ func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim) {
 
 	metrics.IPPoolClaimReplicas(
 		claim.Namespace, claim.Name, claim.Spec.Version,
-		selectorSubnet, ownerKind, ownerName, ownerUID,
+		ownerKind, ownerName, ownerUID,
 	).Set(float64(claim.Spec.Replicas))
+	metrics.IPPoolClaimScaleDownDelaySecond(
+		claim.Namespace, claim.Name, claim.Spec.Version,
+		ownerKind, ownerName, ownerUID,
+	).Set(delay.Seconds())
 	metrics.IPPoolClaimPoolSize(
 		claim.Namespace, claim.Name, claim.Spec.Version,
-		selectorSubnet, ownerKind, ownerName, ownerUID,
+		ownerKind, ownerName, ownerUID,
 	).Set(poolSize)
+	if claim.Status.Subnet != nil {
+		metrics.IPPoolClaimSelectedSubnet(
+			claim.Namespace, claim.Name, claim.Spec.Version,
+			*claim.Status.Subnet, ownerKind, ownerName, ownerUID,
+		).Set(1)
+	}
+
+	return nil
 }
 
 // getLastScaleDownTime gets the current status of IPPoolClaim.
