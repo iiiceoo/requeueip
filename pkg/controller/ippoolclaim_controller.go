@@ -71,7 +71,11 @@ var _ reconcile.Reconciler = &claimReconciler{}
 func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var claim requeueipv1.IPPoolClaim
 	if err := r.client.Get(ctx, req.NamespacedName, &claim); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			metrics.DeleteIPPoolClaim(req.Namespace, req.Name)
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
 	}
 
 	// Remove the auto-created IPPoolClaim when the owner workload does not exist or
@@ -89,8 +93,6 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 					return ctrl.Result{}, err
 				}
 			}
-
-			// Delete IPPoolClaim metrics.
 			metrics.DeleteIPPoolClaim(claim.Namespace, claim.Name)
 			return ctrl.Result{}, nil
 		}
@@ -108,13 +110,12 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, fmt.Errorf("failed to get IPBlock allocation: %v", err)
 	}
 
+	requeue := ctrl.Result{}
 	if err := r.scale(ctx, alloc, &claim); err != nil {
-		return ignoreRequeue(err)
-	}
-
-	// Set custom IPPoolClaim metrics.
-	if err := setIPPoolClaimMetrics(&claim); err != nil {
-		return ctrl.Result{}, err
+		requeue, err = ignoreRequeue(err)
+		if err != nil {
+			return requeue, err
+		}
 	}
 
 	// Update IPPoolClaim status if its current status has changed.
@@ -123,13 +124,22 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, fmt.Errorf("failed to get IPPoolClaim status: %v", err)
 	}
 
-	if reflect.DeepEqual(status, &claim.Status) {
-		return ctrl.Result{}, nil
+	// Set custom IPPoolClaim metrics.
+	if err := setIPPoolClaimMetrics(&claim, status); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set IPPoolClaim metrics: %v", err)
 	}
+
+	if reflect.DeepEqual(status, &claim.Status) {
+		return requeue, nil
+	}
+
 	old := claim.DeepCopy()
 	claim.Status = *status
+	if err := r.client.Status().Patch(ctx, &claim, client.MergeFrom(old)); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	return ctrl.Result{}, r.client.Status().Patch(ctx, &claim, client.MergeFrom(old))
+	return requeue, nil
 }
 
 // getOwnerMetadata gets the metadata of owner resource. It is commonly used to
@@ -659,7 +669,7 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 }
 
 // setIPPoolClaimMetrics sets custom IPPoolClaim metrics.
-func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim) error {
+func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.IPPoolClaimStatus) error {
 	delay, err := str2duration.ParseDuration(*claim.Spec.ScaleDownDelay)
 	if err != nil {
 		return err
@@ -686,16 +696,24 @@ func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim) error {
 		claim.Namespace, claim.Name, claim.Spec.Version,
 		ownerKind, ownerName, ownerUID,
 	).Set(delay.Seconds())
+	metrics.IPPoolClaimSelectedSubnet(
+		claim.Namespace, claim.Name, claim.Spec.Version,
+		*status.Subnet, ownerKind, ownerName, ownerUID,
+	).Set(1)
 	metrics.IPPoolClaimPoolSize(
 		claim.Namespace, claim.Name, claim.Spec.Version,
 		ownerKind, ownerName, ownerUID,
 	).Set(poolSize)
-	if claim.Status.Subnet != nil {
-		metrics.IPPoolClaimSelectedSubnet(
-			claim.Namespace, claim.Name, claim.Spec.Version,
-			*claim.Status.Subnet, ownerKind, ownerName, ownerUID,
-		).Set(1)
+
+	if status.NextScaleDownTime == nil {
+		metrics.DeleteIPPoolClaimNextScaleDownTime(claim.Namespace, claim.Name)
+		return nil
 	}
+
+	metrics.IPPoolClaimNextScaleDownTime(
+		claim.Namespace, claim.Name, claim.Spec.Version,
+		ownerKind, ownerName, ownerUID,
+	).Set(float64(status.NextScaleDownTime.Unix()))
 
 	return nil
 }

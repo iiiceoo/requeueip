@@ -31,6 +31,7 @@ const (
 	scaleDownDelaySecondKey = "scale_down_delay_second"
 	selectedSubnetKey       = "selected_subnet"
 	poolSizeKey             = "pool_size"
+	nextScaleDownTimeKey    = "next_scale_down_time"
 )
 
 var (
@@ -70,6 +71,15 @@ var (
 		"namespace", "name", "version",
 		"owner_kind", "owner_name", "owner_uid",
 	})
+
+	nextScaleDownTimeGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: claimSystem,
+		Name:      nextScaleDownTimeKey,
+		Help:      "The next available time for scaling down.",
+	}, []string{
+		"namespace", "name", "version",
+		"owner_kind", "owner_name", "owner_uid",
+	})
 )
 
 func init() {
@@ -77,6 +87,7 @@ func init() {
 	metrics.Registry.MustRegister(scaleDownDelaySecondGauge)
 	metrics.Registry.MustRegister(selectedSubnetGauge)
 	metrics.Registry.MustRegister(poolSizeGauge)
+	metrics.Registry.MustRegister(nextScaleDownTimeGauge)
 }
 
 func IPPoolClaimReplicas(namespace, name, version, ownerKind, ownerName, ownerUID string) prometheus.Gauge {
@@ -107,6 +118,13 @@ func IPPoolClaimPoolSize(namespace, name, version, ownerKind, ownerName, ownerUI
 	)
 }
 
+func IPPoolClaimNextScaleDownTime(namespace, name, version, ownerKind, ownerName, ownerUID string) prometheus.Gauge {
+	return nextScaleDownTimeGauge.WithLabelValues(
+		namespace, name, version,
+		ownerKind, ownerName, ownerUID,
+	)
+}
+
 func DeleteIPPoolClaim(namespace, name string) {
 	labels := map[string]string{
 		"namespace": namespace,
@@ -116,4 +134,13 @@ func DeleteIPPoolClaim(namespace, name string) {
 	scaleDownDelaySecondGauge.DeletePartialMatch(labels)
 	selectedSubnetGauge.DeletePartialMatch(labels)
 	poolSizeGauge.DeletePartialMatch(labels)
+	nextScaleDownTimeGauge.DeletePartialMatch(labels)
+}
+
+func DeleteIPPoolClaimNextScaleDownTime(namespace, name string) {
+	labels := map[string]string{
+		"namespace": namespace,
+		"name":      name,
+	}
+	nextScaleDownTimeGauge.DeletePartialMatch(labels)
 }
