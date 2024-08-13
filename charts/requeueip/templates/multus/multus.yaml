@@ -134,9 +134,11 @@ spec:
       - name: install-multus-binary
         image: "{{ .Values.multus.image.registry }}/{{ .Values.multus.image.repository }}:{{ .Values.multus.image.tag }}"
         command:
-        - "cp"
-        - "/usr/src/multus-cni/bin/multus-shim"
-        - "/host/opt/cni/bin/multus-shim"
+        - "/usr/src/multus-cni/bin/install_multus"
+        - "-d"
+        - "/host/opt/cni/bin"
+        - "-t"
+        - "thick"
         resources:
           requests:
             cpu: "10m"
