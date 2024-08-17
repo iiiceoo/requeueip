@@ -35,6 +35,11 @@ type SubnetSpec struct {
 
 	// +kubebuilder:validation:Optional
 
+	// The IP ranges excluded from Subnet.
+	Excluded []string `json:"excluded,omitempty"`
+
+	// +kubebuilder:validation:Optional
+
 	// The minimum unit of IP address assignments from Subnet. Defaults to 30
 	// for IPv4 and 126 for IPv6.
 	BlockSize *int32 `json:"blockSize,omitempty"`

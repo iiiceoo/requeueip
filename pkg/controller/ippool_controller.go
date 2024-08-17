@@ -101,7 +101,7 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// Set custom IP metrics.
 	setIPMetrics(riList.Items)
 
-	// Calculate the total, used, and available range of the IPPool.
+	// Calculate the total, used, and available IP range of the IPPool.
 	total, err := iprange.Parse(rp.Spec.Ranges...)
 	if err != nil {
 		return ctrl.Result{}, err

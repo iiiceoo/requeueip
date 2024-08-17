@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"math/big"
+	"net"
 	"reflect"
 	"strconv"
 
@@ -33,7 +34,7 @@ import (
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
 	"github.com/iiiceoo/requeueip/pkg/consts"
 	"github.com/iiiceoo/requeueip/pkg/metrics"
-	"github.com/iiiceoo/requeueip/pkg/net"
+	rnet "github.com/iiiceoo/requeueip/pkg/net"
 )
 
 func NewSubnetReconciler(c client.Client) *subnetReconciler {
@@ -95,8 +96,8 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// Calculate the total, used, and available range of the Subnet.
-	total, err := iprange.Parse(rn.Spec.CIDR)
+	// Calculate the total, used, and available IP range of the Subnet.
+	total, err := getTotalIPRanges(&rn)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -106,7 +107,7 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	free := total.DeepCopy().Diff(used)
 
-	step, err := net.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
+	step, err := rnet.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -176,4 +177,60 @@ func (r *subnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv
 	metrics.DeleteSubnet(subnet.Name)
 
 	return true, nil
+}
+
+// getTotalIPRanges returns the total IP ranges after excluding the IPBlocks
+// that need to be reserved.
+func getTotalIPRanges(subnet *requeueipv1.Subnet) (*iprange.IPRanges, error) {
+	total, err := iprange.Parse(subnet.Spec.CIDR)
+	if err != nil {
+		return nil, err
+	}
+
+	// Excluded IP ranges are not specified.
+	n := len(subnet.Spec.Excluded)
+	if n == 0 {
+		return total, nil
+	}
+
+	excluded, err := iprange.Parse(subnet.Spec.Excluded...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Excluded IP ranges do not overlap with Subnet CIDR.
+	if total.DeepCopy().Intersect(excluded).Size().Sign() == 0 {
+		return total, nil
+	}
+
+	cidrs := make([]string, 0, len(subnet.Spec.Excluded))
+	iter := excluded.CIDRIterator()
+	for {
+		cidr := iter.Next()
+		if cidr == nil {
+			break
+		}
+
+		bits := 32
+		if *subnet.Spec.Version == rnet.IPv6 {
+			bits = 128
+		}
+
+		// Exclude at least one IPBlock (unit).
+		ones, _ := cidr.Mask.Size()
+		if ones > int(*subnet.Spec.BlockSize) {
+			cidr.Mask = net.CIDRMask(int(*subnet.Spec.BlockSize), bits)
+			cidr.IP = cidr.IP.Mask(cidr.Mask)
+		}
+
+		// Use CIDR strings to re-parse into IPRanges.
+		cidrs = append(cidrs, cidr.String())
+	}
+
+	blocked, err := iprange.Parse(cidrs...)
+	if err != nil {
+		return nil, err
+	}
+
+	return total.Diff(blocked), nil
 }

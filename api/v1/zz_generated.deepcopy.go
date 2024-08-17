@@ -450,6 +450,11 @@ func (in *SubnetSpec) DeepCopyInto(out *SubnetSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Excluded != nil {
+		in, out := &in.Excluded, &out.Excluded
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.BlockSize != nil {
 		in, out := &in.BlockSize, &out.BlockSize
 		*out = new(int32)

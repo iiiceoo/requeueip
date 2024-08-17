@@ -77,6 +77,11 @@ spec:
               cidr:
                 description: The CIDR of Subnet.
                 type: string
+              excluded:
+                description: The IP ranges excluded from Subnet.
+                items:
+                  type: string
+                type: array
               version:
                 description: The IP version of Subnet.
                 enum:

@@ -187,6 +187,7 @@ func (h *subnetWebhooker) mutate(ctx context.Context, subnet *requeueipv1.Subnet
 var (
 	fieldVersion   *field.Path = field.NewPath("spec").Child("version")
 	fieldCIDR      *field.Path = field.NewPath("spec").Child("cidr")
+	fieldExcluded  *field.Path = field.NewPath("spec").Child("excluded")
 	fieldBlockSize *field.Path = field.NewPath("spec").Child("blockSize")
 	fieldFree      *field.Path = field.NewPath("status").Child("free")
 )
@@ -214,6 +215,9 @@ func (h *subnetWebhooker) validateSubnetSpec(ctx context.Context, subnet *requeu
 	}
 
 	var errs field.ErrorList
+	if err := h.validateExcluded(subnet); err != nil {
+		errs = append(errs, err)
+	}
 	if err := validateBlockSize(subnet); err != nil {
 		errs = append(errs, err)
 	}
@@ -264,6 +268,33 @@ func (h *subnetWebhooker) validateCIDR(ctx context.Context, subnet *requeueipv1.
 				fmt.Sprintf("overlaps with Subnet %s which CIDR is %s", rn.Name, rn.Spec.CIDR),
 			)
 		}
+	}
+
+	return nil
+}
+
+func (h *subnetWebhooker) validateExcluded(subnet *requeueipv1.Subnet) *field.Error {
+	if len(subnet.Spec.Excluded) == 0 {
+		return nil
+	}
+
+	for i, r := range subnet.Spec.Excluded {
+		ranges, err := iprange.Parse(r)
+		if err != nil {
+			return field.Invalid(fieldExcluded.Index(i), r, "is not a valid IP range")
+		}
+
+		version := ranges.Version()
+		if version == iprange.IPv4 && *subnet.Spec.Version == rnet.IPv4 ||
+			version == iprange.IPv6 && *subnet.Spec.Version == rnet.IPv6 {
+			continue
+		}
+
+		return field.Invalid(
+			fieldExcluded.Index(i),
+			r,
+			fmt.Sprintf("is not a %s IP range", *subnet.Spec.Version),
+		)
 	}
 
 	return nil
