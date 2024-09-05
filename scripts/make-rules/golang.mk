@@ -61,3 +61,9 @@ go.test: tools.verify.ginkgo
 		--cover --output-dir=$(OUTPUT_DIR) --coverprofile=coverprofile.out \
 		-r $(ROOT_DIR)/pkg
 	@$(GO) tool cover -html=$(OUTPUT_DIR)/coverprofile.out -o $(OUTPUT_DIR)/coverage.html
+
+.PHONY: e2e.%
+e2e.%: tools.verify.ginkgo
+	@echo "==> Run $* e2e tests in kind cluster"
+	@ginkgo -vv -p --randomize-suites --randomize-all --timeout=5m \
+		--label-filter $* -r $(ROOT_DIR)/test/e2e

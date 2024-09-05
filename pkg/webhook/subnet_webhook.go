@@ -302,12 +302,12 @@ func (h *subnetWebhooker) validateExcluded(subnet *requeueipv1.Subnet) *field.Er
 
 func validateBlockSize(subnet *requeueipv1.Subnet) *field.Error {
 	if *subnet.Spec.Version == rnet.IPv4 {
-		if *subnet.Spec.BlockSize < 26 || *subnet.Spec.BlockSize > 32 {
-			return field.Invalid(fieldBlockSize, *subnet.Spec.BlockSize, "must belong to [26, 32]")
+		if *subnet.Spec.BlockSize < 26 || *subnet.Spec.BlockSize > 31 {
+			return field.Invalid(fieldBlockSize, *subnet.Spec.BlockSize, "must belong to [26, 31]")
 		}
 	} else {
-		if *subnet.Spec.BlockSize < 122 || *subnet.Spec.BlockSize > 128 {
-			return field.Invalid(fieldBlockSize, *subnet.Spec.BlockSize, "must belong to [122, 128]")
+		if *subnet.Spec.BlockSize < 122 || *subnet.Spec.BlockSize > 127 {
+			return field.Invalid(fieldBlockSize, *subnet.Spec.BlockSize, "must belong to [122, 127]")
 		}
 	}
 

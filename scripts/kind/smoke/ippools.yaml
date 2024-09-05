@@ -5,7 +5,7 @@ metadata:
 spec:
   allowedUses:
   - Workload
-  cidr: 192.168.1.0/24
+  cidr: 10.0.0.0/24
   blockSize: 26
   disabled: true
   nodeSelector: '!all()'
@@ -20,7 +20,7 @@ metadata:
 spec:
   allowedUses:
   - Workload
-  cidr: fd00:192:168::100/120
+  cidr: fd00::/120
   blockSize: 122
   disabled: true
   nodeSelector: '!all()'

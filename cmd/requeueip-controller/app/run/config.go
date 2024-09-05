@@ -46,7 +46,7 @@ func init() {
 	runCmd.Flags().StringVar(&arg.file, "config", "/etc/requeueip/controller.yaml", "Path to config file.")
 	runCmd.Flags().
 		StringVar(&arg.pyroscopeAddr, "pyroscope-address", "", "The address where the Pyroscope server runs (push mode).")
-	runCmd.Flags().IntVar(&arg.workers, "workers", 3, "Maximum number of concurrent rconciles that each controller can run.")
+	runCmd.Flags().IntVar(&arg.workers, "workers", 10, "Maximum number of concurrent rconciles that each controller can run.")
 	runCmd.Flags().StringVar(&arg.probeAddr, "health-probe-address", ":8081", "The address that probe endpoint binds to.")
 	runCmd.Flags().StringVar(&arg.metricsAddr, "metrics-address", ":8443", "The address that metrics endpoint binds to.")
 	runCmd.Flags().StringVar(&arg.webhookHost, "webhook-host", "", "The host that webhook endpoint binds to.")

@@ -54,14 +54,24 @@ const (
 const LabelIPVersion = RPrefix + "/" + "ip-version"
 
 const (
-	AnnoIPv4Subnets    = RPrefix + "/" + "ipv4-subnets"
-	AnnoIPv6Subnets    = RPrefix + "/" + "ipv6-subnets"
-	AnnoIPv4IPPools    = RPrefix + "/" + "ipv4-pools"
-	AnnoIPv6IPPools    = RPrefix + "/" + "ipv6-pools"
-	AnnoScaleDownDelay = RPrefix + "/" + "scale-down-delay"
+	AnnoMultusDefaultNetwork = "v1.multus-cni.io/default-network"
+	AnnoIPv4Subnets          = RPrefix + "/" + "ipv4-subnets"
+	AnnoIPv6Subnets          = RPrefix + "/" + "ipv6-subnets"
+	AnnoIPv4IPPools          = RPrefix + "/" + "ipv4-pools"
+	AnnoIPv6IPPools          = RPrefix + "/" + "ipv6-pools"
+	AnnoScaleDownDelay       = RPrefix + "/" + "scale-down-delay"
 )
 
 const (
+	KindIPPoolClaim = "IPPoolClaim"
+	KindSubnet      = "Subnet"
+	KindIPBlock     = "IPBlock"
+	KindIPPool      = "IPPool"
+	KindIP          = "IP"
+)
+
+const (
+	KindNamespace   = "Namespace"
 	KindReplicaSet  = "ReplicaSet"
 	KindDeployment  = "Deployment"
 	KindStatefulSet = "StatefulSet"

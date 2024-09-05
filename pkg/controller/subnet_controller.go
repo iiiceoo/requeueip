@@ -158,14 +158,16 @@ func (r *subnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv
 		ctx,
 		&rpList,
 		client.MatchingLabels{consts.LabelRefSubnet: subnet.Name},
-		client.Limit(1),
 		client.UnsafeDisableDeepCopy,
 	); err != nil {
 		return false, err
 	}
 
-	if len(rpList.Items) != 0 {
-		return false, nil
+	for i := 0; i < len(rpList.Items); i++ {
+		rp := &rpList.Items[i]
+		if rp.DeletionTimestamp.IsZero() {
+			return false, nil
+		}
 	}
 
 	controllerutil.RemoveFinalizer(subnet, consts.RFinalizer)

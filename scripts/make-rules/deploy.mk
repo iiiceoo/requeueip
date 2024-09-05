@@ -37,9 +37,9 @@ kind.cluster: tools.verify.kind
 	else \
 		$(KIND) create cluster --image $(NODE_IMAGE) --config $(KIND_CONFIG) --name $(GIT_BRANCH); \
 		echo "Install Calico $(CALICO_VERSION) ..."; \
-		$(KUBECTL) apply -f $(CALICO_MANIFESTS); \
+		$(KUBECTL) --context kind-$(GIT_BRANCH) apply -f $(CALICO_MANIFESTS); \
 		echo "Wait all calico-node Pods ready ..."; \
-		$(KUBECTL) wait po -l k8s-app=calico-node -n kube-system --for=condition=Ready --timeout 2m; \
+		$(KUBECTL) --context kind-$(GIT_BRANCH) wait po -l k8s-app=calico-node -n kube-system --for=condition=Ready --timeout 5m; \
 	fi
 
 .PHONY: kind.clean
@@ -53,7 +53,7 @@ kind.use-context:
 .PHONY: kind.charts
 kind.charts: kind.cluster
 	@$(HELM) upgrade requeueip $(CHARTS_DIR) -n kube-system \
-	--wait --timeout 1m --install --kube-context kind-$(GIT_BRANCH) \
+	--wait --timeout 5m --install --kube-context kind-$(GIT_BRANCH) \
 	-f scripts/kind/smoke/values/nad.yaml \
 	--set daemon.image.registry=$(REGISTRY_PREFIX) \
 	--set daemon.image.tag=$(VERSION) \
@@ -66,4 +66,4 @@ kind.smoke:
 	@$(KUBECTL) --context kind-$(GIT_BRANCH) delete po -l smoke --ignore-not-found
 	@$(KUBECTL) --context kind-$(GIT_BRANCH) apply -f scripts/kind/smoke
 	@echo "Wait all static IP Pods ready ...";
-	@$(KUBECTL) wait po -l smoke --for=condition=Ready --timeout 1m
+	@$(KUBECTL) --context kind-$(GIT_BRANCH) wait po -l smoke --for=condition=Ready --timeout 1m

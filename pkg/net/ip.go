@@ -33,6 +33,11 @@ func IPToName(ip net.IP) string {
 	n = strings.Replace(n, ".", "-", 3)
 	n = strings.Replace(n, ":", "-", 7)
 
+	// e.g. fd00:6:1::
+	if strings.HasSuffix(n, "--") {
+		n += "0"
+	}
+
 	return n
 }
 

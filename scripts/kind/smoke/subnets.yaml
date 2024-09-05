@@ -3,11 +3,11 @@ kind: Subnet
 metadata:
   name: smoke-ipv4-subnet
 spec:
-  cidr: 192.168.1.0/24
+  cidr: 10.0.0.0/24
 ---
 apiVersion: requeueip.io/v1
 kind: Subnet
 metadata:
   name: smoke-ipv6-subnet
 spec:
-  cidr: fd00:192:168::100/120
+  cidr: fd00::/120

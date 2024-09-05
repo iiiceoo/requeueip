@@ -15,7 +15,7 @@ COPY . .
 RUN make go.build.${TARGETOS}_${TARGETARCH}.requeueip
 RUN make go.build.${TARGETOS}_${TARGETARCH}.requeueipd
 
-FROM --platform=${BUILDPLATFORM} ${BASE_IMAGE}
+FROM ${BASE_IMAGE}
 
 ARG TARGETOS
 ARG TARGETARCH
