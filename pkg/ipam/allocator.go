@@ -75,8 +75,8 @@ type allocator struct {
 	client client.Client
 }
 
-// ipAssignment contains the count of IPv4 and IPv6 addresses to be assigned
-// as well as the slices of currently assigned IP addresses.
+// ipAssignment contains the count of IPv4 and IPv6 addresses to be assigned as
+// well as the slices of currently assigned IP addresses.
 type ipAssignment struct {
 	v4ToAssign int
 	v6ToAssign int
@@ -323,8 +323,8 @@ func (a *allocator) assign(
 	return assignment.ips, nil
 }
 
-// assignIPs assigns IP addresses of the specified version to Pod, which
-// belong to the IPPool corresponding to the workload.
+// assignIPs assigns IP addresses of the specified version to Pod, which belong
+// to the IPPool corresponding to the workload.
 func (a *allocator) assignIPs(
 	ctx context.Context,
 	version string,
@@ -398,8 +398,8 @@ func (a *allocator) selectIPPool(
 		return pool, nil
 	}
 
-	// Do not perform excessive validation on subnets value here, it should be the
-	// responsibility of the controller.
+	// Do not perform excessive validation on subnets value here, it should be
+	// the responsibility of the controller.
 	_, ok = pod.Annotations[as]
 	if !ok {
 		return nil, errors.New("no IPPool selection rule is specified")
@@ -558,14 +558,14 @@ func (a *allocator) assignIP(
 
 	var owner metav1.Object
 	if workload.GetObjectKind().GroupVersionKind().Kind == consts.KindStatefulSet {
-		// The ID is generated using the Pod name instead of the UID to ensure that a
-		// STS Pod will always assign the same IP addresses in case of IPPool delayed
-		// scaling down.
+		// The ID is generated using the Pod name instead of the UID to ensure
+		// that a STS Pod will always assign the same IP addresses in case of
+		// IPPool delayed scaling down.
 		id = fmt.Sprintf("%s-%s", id, pod.Name)
 
-		// The IP addresses used by Pod controlled by StatefulSet will be asynchronously
-		// released by the controller. Ensure that the death of Pod does not result in the
-		// release of IP addresses.
+		// The IP addresses used by Pod controlled by StatefulSet will be
+		// asynchronously released by the controller. Ensure that the death of
+		// Pod does not result in the release of IP addresses.
 		owner = workload
 		ri.Labels[consts.LabelRefSTSUID] = string(workload.GetUID())
 		ri.Labels[consts.LabelRefPod] = pod.Name
@@ -584,8 +584,8 @@ func (a *allocator) assignIP(
 		return nil, err
 	}
 
-	// Try to retry as much as possible, the cost of cmdAdd failure far outweighs
-	// the cost of retry.
+	// Try to retry as much as possible, the cost of cmdAdd failure far
+	// outweighs the cost of retry.
 	if err := retry.OnError(backoff, isAlreadyExists, func() error {
 		if err := a.client.Get(ctx, types.NamespacedName{
 			Namespace: pool.Namespace,

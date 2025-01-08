@@ -67,8 +67,8 @@ func NameToCIDR(version, name string) (*net.IPNet, error) {
 	return ipNet, nil
 }
 
-// CountFromMaskSize calculates the number of IP addresses based on the size
-// of the subnet mask.
+// CountFromMaskSize calculates the number of IP addresses based on the size of
+// the subnet mask.
 func CountFromMaskSize(version string, maskSize int) (*big.Int, error) {
 	var bits int
 	switch version {

@@ -62,8 +62,8 @@ func NameToIP(version, name string) (net.IP, error) {
 	return ip, nil
 }
 
-// NameToCIDRIP converts resource name to IP address(CIDR) based on the
-// IP version.
+// NameToCIDRIP converts resource name to IP address(CIDR) based on the IP
+// version.
 func NameToCIDRIP(version, name string) (*net.IPNet, error) {
 	ip, err := NameToIP(version, name)
 	if err != nil {

@@ -97,8 +97,8 @@ func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	// The StatefulSet has been deleted, do nothing, OwnerReference will ensure that
-	// the relevant IPs are recycled.
+	// The StatefulSet has been deleted, do nothing, OwnerReference will ensure
+	// that the relevant IPs are recycled.
 	if !sts.DeletionTimestamp.IsZero() {
 		metrics.DeleteSTSIP(sts.Namespace, sts.Name)
 		return ctrl.Result{}, nil
@@ -194,7 +194,8 @@ func isRunningSTSPod(sts *appsv1.StatefulSet, podName string) (bool, error) {
 		end = int(*sts.Spec.Replicas) - 1
 	}
 
-	// Ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#start-ordinal
+	// Ref:
+	// https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#start-ordinal
 	if sts.Spec.Ordinals != nil {
 		start := int(sts.Spec.Ordinals.Start)
 		end = start + end

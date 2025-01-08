@@ -78,8 +78,8 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	// Remove the auto-created IPPoolClaim when the owner workload does not exist or
-	// is terminating.
+	// Remove the auto-created IPPoolClaim when the owner workload does not
+	// exist or is terminating.
 	if !claim.DeletionTimestamp.IsZero() {
 		metadata, err := r.getOwnerMetadata(ctx, &claim)
 		if err != nil {
@@ -179,8 +179,8 @@ func (r *claimReconciler) getOrMarkIPPool(
 	claim *requeueipv1.IPPoolClaim,
 ) (*requeueipv1.Subnet, *requeueipv1.IPPool, error) {
 	// Do not use IPPool in the cache as it may cause meaningless conflicts when
-	// updating IPPool later. In fact, when IPPool is not cached, it can be patched
-	// instead of updated later.
+	// updating IPPool later. In fact, when IPPool is not cached, it can be
+	// patched instead of updated later.
 	exist := true
 	var rp requeueipv1.IPPool
 	if err := r.reader.Get(ctx, types.NamespacedName{
@@ -261,8 +261,8 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 			continue
 		}
 
-		// Do not skip the Subnet that is not ready, but try again later, respecting the
-		// order of candidate Subnets as much as possible.
+		// Do not skip the Subnet that is not ready, but try again later,
+		// respecting the order of candidate Subnets as much as possible.
 		if rn.Status.BlockCount == nil {
 			return nil, newErrorRequeue()
 		}
@@ -361,8 +361,8 @@ type ipBlockAllocation struct {
 
 // getIPBlockAllocation gets allocaion of IPBlock for IPPool scaling up/down.
 func getIPBlockAllocation(subnet *requeueipv1.Subnet, pool *requeueipv1.IPPool) (*ipBlockAllocation, error) {
-	// Do not use the count status of IPPool as it may not have been set when IPPool
-	// first created.
+	// Do not use the count status of IPPool as it may not have been set when
+	// IPPool first created.
 	ranges, err := iprange.Parse(pool.Spec.Ranges...)
 	if err != nil {
 		return nil, err
@@ -409,8 +409,8 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 		return newErrorRequeueAfter(5 * time.Second)
 	}
 
-	// Do not get the free IPRanges of IPPool in getIPBlockAllocation, as the status
-	// of IPPool may not be ready yet.
+	// Do not get the free IPRanges of IPPool in getIPBlockAllocation, as the
+	// status of IPPool may not be ready yet.
 	free, err := iprange.Parse(alloc.pool.Status.Free...)
 	if err != nil {
 		return err
@@ -524,8 +524,8 @@ func (r *claimReconciler) scaleUpWithinIPBlocks(
 	old := alloc.pool.DeepCopy()
 	alloc.pool.Spec.Ranges = dr.Union(alloc.poolRanges).Strings()
 
-	// No other component attempts to update the IPPool spec, using patch to avoid
-	// conflicts.
+	// No other component attempts to update the IPPool spec, using patch to
+	// avoid conflicts.
 	return r.client.Patch(ctx, alloc.pool, client.MergeFrom(old))
 }
 
