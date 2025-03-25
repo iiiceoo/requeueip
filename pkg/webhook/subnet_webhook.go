@@ -197,6 +197,9 @@ func (h *subnetWebhooker) validateCreate(ctx context.Context, subnet *requeueipv
 }
 
 func (h *subnetWebhooker) validateUpdate(ctx context.Context, old, subnet *requeueipv1.Subnet) field.ErrorList {
+	if errs := validateSubnetFreeze(old, subnet); len(errs) != 0 {
+		return errs
+	}
 	if errs := h.validateSubnetSpec(ctx, subnet); len(errs) != 0 {
 		return errs
 	}
@@ -225,6 +228,18 @@ func (h *subnetWebhooker) validateSubnetSpec(ctx context.Context, subnet *requeu
 	return errs
 }
 
+func validateSubnetFreeze(old, subnet *requeueipv1.Subnet) field.ErrorList {
+	var errs field.ErrorList
+	if *subnet.Spec.Version != *old.Spec.Version {
+		errs = append(errs, field.Forbidden(fieldVersion, "could not be changed"))
+	}
+	if *subnet.Spec.BlockSize != *old.Spec.BlockSize {
+		errs = append(errs, field.Forbidden(fieldBlockSize, "could not be changed"))
+	}
+
+	return errs
+}
+
 func (h *subnetWebhooker) validateCIDR(ctx context.Context, subnet *requeueipv1.Subnet) *field.Error {
 	ip, cidr, err := net.ParseCIDR(subnet.Spec.CIDR)
 	if err != nil {
@@ -237,11 +252,11 @@ func (h *subnetWebhooker) validateCIDR(ctx context.Context, subnet *requeueipv1.
 
 	if ip.To4() != nil {
 		if *subnet.Spec.Version != rnet.IPv4 {
-			return field.Invalid(fieldCIDR, subnet.Spec.CIDR, "is not an IPv4 CIDR")
+			return field.Invalid(fieldCIDR, subnet.Spec.CIDR, "is not an IPv6 CIDR")
 		}
 	} else {
 		if *subnet.Spec.Version != rnet.IPv6 {
-			return field.Invalid(fieldCIDR, subnet.Spec.CIDR, "is not an IPv6 CIDR")
+			return field.Invalid(fieldCIDR, subnet.Spec.CIDR, "is not an IPv4 CIDR")
 		}
 	}
 
