@@ -79,7 +79,7 @@ func run(ctx context.Context) error {
 	logger.Info("Runtime args", "args", arg)
 	logger.V(1).Info("Runtime config", "config", config)
 
-	logger.Info("Create controller-runtime manager")
+	logger.Info("Create controller manager")
 	kubeconfig := ctrl.GetConfigOrDie()
 	kubeconfig.Burst = 150
 	kubeconfig.QPS = 100
@@ -129,7 +129,7 @@ func run(ctx context.Context) error {
 
 	errCh := make(chan error, 2)
 	go func() {
-		logger.Info("Start controller-runtime manager")
+		logger.Info("Start controller manager")
 		if err := mgr.Start(ctx); err != nil {
 			errCh <- err
 		}
@@ -147,7 +147,6 @@ func run(ctx context.Context) error {
 		// The DeletionGracePeriodSeconds of Pod is generally 30s.
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-
 		return server.Shutdown(shutdownCtx)
 	case err := <-errCh:
 		return err

@@ -45,14 +45,14 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
-var workloadSupports = []string{
+var supportedWorkload = []string{
 	appsv1.SchemeGroupVersion.String() + "/" + consts.KindReplicaSet,
 	appsv1.SchemeGroupVersion.String() + "/" + consts.KindDeployment,
 	appsv1.SchemeGroupVersion.String() + "/" + consts.KindStatefulSet,
 }
 
 type Allocator interface {
-	// Get assigns IP addresses to Pod.
+	// Get assigns IP addresses for Pod.
 	Get(ctx context.Context, namespace, podName string, options *Options) ([]oapiv1.IPConfig, error)
 }
 
@@ -124,9 +124,9 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 		return nil, errors.New("orphan Pod")
 	}
 
-	var errUnsupportedWorkload = errors.New("unsupported workload")
+	errUnsupportedWorkload := errors.New("unsupported workload")
 	gvk := owner.APIVersion + "/" + owner.Kind
-	if !slices.Contains(workloadSupports, gvk) {
+	if !slices.Contains(supportedWorkload, gvk) {
 		return nil, fmt.Errorf("%v: %s", errUnsupportedWorkload, gvk)
 	}
 
@@ -167,7 +167,7 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 		}
 
 		gvk = owner.APIVersion + "/" + owner.Kind
-		if !slices.Contains(workloadSupports, gvk) {
+		if !slices.Contains(supportedWorkload, gvk) {
 			return nil, fmt.Errorf("%v: %s", errUnsupportedWorkload, gvk)
 		}
 
@@ -187,7 +187,7 @@ func (a *allocator) getWorkload(ctx context.Context, pod *corev1.Pod) (client.Ob
 	}
 
 	if !workload.GetDeletionTimestamp().IsZero() {
-		return nil, fmt.Errorf("terminating %s %s/%s", gvk, workload.GetNamespace(), workload.GetName())
+		return nil, fmt.Errorf("terminating owner %s %s/%s", gvk, workload.GetNamespace(), workload.GetName())
 	}
 
 	return workload, nil
@@ -200,7 +200,7 @@ func (a *allocator) retrieveExistingIPs(
 	workload client.Object,
 	options *Options,
 ) (*ipAssignment, error) {
-	labels := map[string]string{}
+	labels := make(map[string]string)
 	if workload.GetObjectKind().GroupVersionKind().Kind == consts.KindStatefulSet {
 		labels[consts.LabelRefSTSUID] = string(workload.GetUID())
 		labels[consts.LabelRefPod] = pod.Name

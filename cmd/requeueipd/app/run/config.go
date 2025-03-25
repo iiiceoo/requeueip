@@ -49,16 +49,16 @@ func init() {
 		StringVar(&arg.unixSocketPath, "socket", consts.CNIUnixSocketPath, "The Unix socket path where the RequeueIP daemon listens.")
 }
 
-var config = new(daeminConfig)
+var config = new(daemonConfig)
 
-type daeminConfig struct {
+type daemonConfig struct {
 }
 
-func (dc *daeminConfig) String() string {
+func (dc *daemonConfig) String() string {
 	return fmt.Sprintf("%+v", *dc)
 }
 
-func (dc *daeminConfig) load(path string) error {
+func (dc *daemonConfig) load(path string) error {
 	bb, err := os.ReadFile(path)
 	if err != nil {
 		return err

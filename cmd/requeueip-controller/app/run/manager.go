@@ -77,7 +77,7 @@ func run(ctx context.Context) error {
 	logger.Info("Runtime args", "args", arg)
 	logger.V(1).Info("Runtime config", "config", config)
 
-	logger.Info("Create controller-runtime manager")
+	logger.Info("Create controller manager")
 	kubeconfig := ctrl.GetConfigOrDie()
 	kubeconfig.Burst = 150
 	kubeconfig.QPS = 100
@@ -156,7 +156,7 @@ func run(ctx context.Context) error {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		return err
 	}
-	logger.Info("Start controller-runtime manager")
+	logger.Info("Start controller manager")
 
 	return mgr.Start(ctx)
 }
