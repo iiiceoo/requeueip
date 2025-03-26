@@ -25,12 +25,12 @@ import (
 )
 
 // The minimum CNI spec version supported by RequesteIP IPAM CNI.
-const min = "0.3.1"
+const minCNIVersion = "0.3.1"
 
 func main() {
 	text, _ := rversion.Get().Text()
 	skel.PluginMainFuncs(skel.CNIFuncs{
 		Add: run.CmdAdd,
 		Del: run.CmdDel,
-	}, version.VersionsStartingFrom(min), text)
+	}, version.VersionsStartingFrom(minCNIVersion), text)
 }

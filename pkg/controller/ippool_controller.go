@@ -127,10 +127,10 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			Free:  free.Size().String(),
 		},
 	}
-
 	if reflect.DeepEqual(status, &rp.Status) {
 		return ctrl.Result{}, nil
 	}
+
 	old := rp.DeepCopy()
 	rp.Status = *status
 

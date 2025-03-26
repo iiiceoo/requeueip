@@ -105,41 +105,16 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ignoreRequeue(fmt.Errorf("failed to get or mark IPPool: %w", err))
 	}
 
-	alloc, err := getIPBlockAllocation(subnet, pool)
+	alloc, err := getIPBlockAllocation(&claim, subnet, pool)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get IPBlock allocation: %v", err)
 	}
 
-	requeue := ctrl.Result{}
-	if err := r.scale(ctx, alloc, &claim); err != nil {
-		requeue, err = ignoreRequeue(err)
-		if err != nil {
-			return requeue, err
-		}
+	if err := r.scale(ctx, alloc); err != nil {
+		return ignoreRequeue(err)
 	}
 
-	// Update IPPoolClaim status if its current status has changed.
-	status, err := getIPPoolClaimStatus(alloc, &claim)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get IPPoolClaim status: %v", err)
-	}
-
-	// Set custom IPPoolClaim metrics.
-	if err := setIPPoolClaimMetrics(&claim, status); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to set IPPoolClaim metrics: %v", err)
-	}
-
-	if reflect.DeepEqual(status, &claim.Status) {
-		return requeue, nil
-	}
-
-	old := claim.DeepCopy()
-	claim.Status = *status
-	if err := r.client.Status().Patch(ctx, &claim, client.MergeFrom(old)); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return requeue, nil
+	return ctrl.Result{}, r.syncIPPoolClaimStatus(ctx, alloc)
 }
 
 // getOwnerMetadata gets the metadata of owner resource. It is commonly used to
@@ -180,7 +155,7 @@ func (r *claimReconciler) getOrMarkIPPool(
 ) (*requeueipv1.Subnet, *requeueipv1.IPPool, error) {
 	// Do not use IPPool in the cache as it may cause meaningless conflicts when
 	// updating IPPool later. In fact, when IPPool is not cached, it can be
-	// patched instead of updated later.
+	// patched instead of updated.
 	exist := true
 	var rp requeueipv1.IPPool
 	if err := r.reader.Get(ctx, types.NamespacedName{
@@ -284,17 +259,16 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 }
 
 // scale scales the size of the IPPool up or down to workload replicas.
-func (r *claimReconciler) scale(ctx context.Context, alloc *ipBlockAllocation, claim *requeueipv1.IPPoolClaim) error {
-	replicas := int(claim.Spec.Replicas)
-	if replicas == alloc.poolSize {
+func (r *claimReconciler) scale(ctx context.Context, alloc *ipBlockAllocation) error {
+	if alloc.replicas == alloc.poolSize {
 		return nil
 	}
 
-	if replicas > alloc.poolSize {
-		if err := r.scaleUp(ctx, alloc, replicas); err != nil {
+	if alloc.replicas > alloc.poolSize {
+		if err := r.scaleUp(ctx, alloc); err != nil {
 			return fmt.Errorf(
 				"failed to scale up the size of IPPool to %d from Subnet %s: %w",
-				replicas,
+				alloc.replicas,
 				alloc.subnet.Name,
 				err,
 			)
@@ -302,28 +276,21 @@ func (r *claimReconciler) scale(ctx context.Context, alloc *ipBlockAllocation, c
 		return nil
 	}
 
-	if *claim.Spec.ScaleDownDelay != "0" {
-		// No wasted IPBlocks.
-		next := claim.Status.NextScaleDownTime
-		if next == nil {
-			return nil
-		}
-
-		// The workload was rescaled up so that No wasted IPBlocks.
-		if alloc.poolSize-replicas < alloc.step {
-			return nil
-		}
-
+	// Delayed scale-down.
+	if alloc.nsdTime != nil {
 		now := time.Now()
-		if now.Before(next.Time) {
-			return newErrorRequeueAfter(next.DeepCopy().Sub(now))
+		if now.Before(alloc.nsdTime.Time) {
+			if err := r.syncIPPoolClaimStatus(ctx, alloc); err != nil {
+				return err
+			}
+			return newErrorRequeueAfter(alloc.nsdTime.DeepCopy().Sub(now))
 		}
 	}
 
-	if err := r.scaleDown(ctx, alloc, replicas); err != nil {
+	if err := r.scaleDown(ctx, alloc); err != nil {
 		return fmt.Errorf(
 			"failed to scale down the size of IPPool to %d from Subnet %s: %w",
-			replicas,
+			alloc.replicas,
 			alloc.subnet.Name,
 			err,
 		)
@@ -357,10 +324,23 @@ type ipBlockAllocation struct {
 
 	// The size(*big.Int) of a single IPBlock in the Subnet.
 	bStep *big.Int
+
+	// IPPoolClaim under reconciliation.
+	claim *requeueipv1.IPPoolClaim
+
+	// The expected size of the IPPool.
+	replicas int
+
+	// The next time for delayed scale-down.
+	nsdTime *metav1.Time
 }
 
 // getIPBlockAllocation gets allocaion of IPBlock for IPPool scaling up/down.
-func getIPBlockAllocation(subnet *requeueipv1.Subnet, pool *requeueipv1.IPPool) (*ipBlockAllocation, error) {
+func getIPBlockAllocation(
+	claim *requeueipv1.IPPoolClaim,
+	subnet *requeueipv1.Subnet,
+	pool *requeueipv1.IPPool,
+) (*ipBlockAllocation, error) {
 	// Do not use the count status of IPPool as it may not have been set when
 	// IPPool first created.
 	ranges, err := iprange.Parse(pool.Spec.Ranges...)
@@ -375,7 +355,14 @@ func getIPBlockAllocation(subnet *requeueipv1.Subnet, pool *requeueipv1.IPPool) 
 	count := new(big.Int)
 	count.SetString(subnet.Status.BlockCount.Free, 10)
 
-	step, err := net.CountFromMaskSize(*subnet.Spec.Version, int(*subnet.Spec.BlockSize))
+	bStep, err := net.CountFromMaskSize(*subnet.Spec.Version, int(*subnet.Spec.BlockSize))
+	if err != nil {
+		return nil, err
+	}
+
+	poolSize := int(ranges.Size().Int64())
+	step := int(bStep.Int64())
+	nsdTime, err := getNextScaleDownTime(claim, poolSize, step)
 	if err != nil {
 		return nil, err
 	}
@@ -383,17 +370,46 @@ func getIPBlockAllocation(subnet *requeueipv1.Subnet, pool *requeueipv1.IPPool) 
 	return &ipBlockAllocation{
 		pool:           pool,
 		poolRanges:     ranges,
-		poolSize:       int(ranges.Size().Int64()),
+		poolSize:       poolSize,
 		subnet:         subnet,
 		freeRanges:     free,
 		freeBlockCount: count,
-		step:           int(step.Int64()),
-		bStep:          step,
+		step:           step,
+		bStep:          bStep,
+		claim:          claim,
+		replicas:       int(claim.Spec.Replicas),
+		nsdTime:        nsdTime,
 	}, nil
 }
 
+// getNextScaleDownTime gets the next time for delayed scale-down.
+func getNextScaleDownTime(claim *requeueipv1.IPPoolClaim, poolSize, step int) (*metav1.Time, error) {
+	// Delayed scale-down not enabled.
+	if *claim.Spec.ScaleDownDelay == "0" {
+		return nil, nil
+	}
+
+	// 1. Need scaling up.
+	// 2. No wasted IPBlocks.
+	if poolSize-int(claim.Spec.Replicas) < step {
+		return nil, nil
+	}
+
+	if claim.Status.NextScaleDownTime != nil {
+		return claim.Status.NextScaleDownTime, nil
+	}
+
+	delay, err := str2duration.ParseDuration(*claim.Spec.ScaleDownDelay)
+	if err != nil {
+		return nil, err
+	}
+	next := metav1.NewTime(metav1.Now().Add(delay))
+
+	return &next, nil
+}
+
 // scaleDown scales down IPPool and releases unused IPBlocks.
-func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocation, replicas int) error {
+func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocation) error {
 	if alloc.pool.Status.Count == nil {
 		return newErrorRequeue()
 	}
@@ -405,7 +421,7 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 
 	// Wait for the replica of workload to converge before scaling down IPPool.
 	// The default DeletionGracePeriodSeconds for Pod is 30 seconds.
-	if used != replicas {
+	if used != alloc.replicas {
 		return newErrorRequeueAfter(5 * time.Second)
 	}
 
@@ -448,7 +464,7 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 	}
 
 	ipTotal := len(rbList.Items) * alloc.step
-	if ipTotal-replicas < alloc.step {
+	if ipTotal-alloc.replicas < alloc.step {
 		return nil
 	}
 
@@ -460,7 +476,7 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 }
 
 // scaleUp claims IPBlocks and scales up IPPool.
-func (r *claimReconciler) scaleUp(ctx context.Context, alloc *ipBlockAllocation, replicas int) error {
+func (r *claimReconciler) scaleUp(ctx context.Context, alloc *ipBlockAllocation) error {
 	// Never get IPBlocks from the cache.
 	var rbList requeueipv1.IPBlockList
 	if err := r.reader.List(
@@ -476,17 +492,17 @@ func (r *claimReconciler) scaleUp(ctx context.Context, alloc *ipBlockAllocation,
 	}
 
 	ipTotal := len(rbList.Items) * alloc.step
-	if replicas <= ipTotal {
-		if err := r.scaleUpWithinIPBlocks(ctx, alloc, replicas, rbList.Items); err != nil {
+	if alloc.replicas <= ipTotal {
+		if err := r.scaleUpWithinIPBlocks(ctx, alloc, rbList.Items); err != nil {
 			return err
 		}
-		if ipTotal-replicas >= alloc.step {
+		if ipTotal-alloc.replicas >= alloc.step {
 			return r.releaseIPBlocks(ctx, alloc.pool, rbList.Items)
 		}
 		return nil
 	}
 
-	delta := replicas - ipTotal
+	delta := alloc.replicas - ipTotal
 	expect := delta / alloc.step
 	if delta%alloc.step != 0 {
 		expect++
@@ -501,14 +517,13 @@ func (r *claimReconciler) scaleUp(ctx context.Context, alloc *ipBlockAllocation,
 		return err
 	}
 
-	return r.scaleUpWithinIPBlocks(ctx, alloc, replicas, append(rbList.Items, blocks...))
+	return r.scaleUpWithinIPBlocks(ctx, alloc, append(rbList.Items, blocks...))
 }
 
 // scaleUpWithinIPBlocks scales up IPPool based on existing IPBlocks.
 func (r *claimReconciler) scaleUpWithinIPBlocks(
 	ctx context.Context,
 	alloc *ipBlockAllocation,
-	replicas int,
 	blocks []requeueipv1.IPBlock,
 ) error {
 	br, err := parseRangesFromIPBlocks(alloc.pool.Spec.Version, blocks)
@@ -516,7 +531,7 @@ func (r *claimReconciler) scaleUpWithinIPBlocks(
 		return err
 	}
 
-	delta := int64(replicas) - alloc.poolRanges.Size().Int64()
+	delta := int64(alloc.replicas) - alloc.poolRanges.Size().Int64()
 	dr := br.Diff(alloc.poolRanges).Slice(consts.BigInt[0], big.NewInt(delta-1))
 
 	// The version of alloc.poolRanges may be Unknown when init an empty IPPool.
@@ -668,6 +683,32 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 	return nil
 }
 
+// syncIPPoolClaimStatus sync the status and metrics of IPPoolClaim.
+func (r *claimReconciler) syncIPPoolClaimStatus(ctx context.Context, alloc *ipBlockAllocation) error {
+	// alloc.poolSize is stale.
+	ranges, err := iprange.Parse(alloc.pool.Spec.Ranges...)
+	if err != nil {
+		return err
+	}
+
+	status := &requeueipv1.IPPoolClaimStatus{
+		Subnet:            &alloc.subnet.Name,
+		PoolSize:          ptr.To(int32(ranges.Size().Int64())),
+		NextScaleDownTime: alloc.nsdTime,
+	}
+	if err := setIPPoolClaimMetrics(alloc.claim, status); err != nil {
+		return err
+	}
+	if reflect.DeepEqual(status, &alloc.claim.Status) {
+		return nil
+	}
+
+	old := alloc.claim.DeepCopy()
+	alloc.claim.Status = *status
+
+	return r.client.Status().Patch(ctx, alloc.claim, client.MergeFrom(old))
+}
+
 // setIPPoolClaimMetrics sets custom IPPoolClaim metrics.
 func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.IPPoolClaimStatus) error {
 	delay, err := str2duration.ParseDuration(*claim.Spec.ScaleDownDelay)
@@ -681,11 +722,6 @@ func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.I
 		ownerKind = owner.Kind
 		ownerName = owner.Name
 		ownerUID = string(owner.UID)
-	}
-
-	poolSize := float64(0)
-	if claim.Status.PoolSize != nil {
-		poolSize = float64(*claim.Status.PoolSize)
 	}
 
 	metrics.IPPoolClaimReplicas(
@@ -703,7 +739,7 @@ func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.I
 	metrics.IPPoolClaimPoolSize(
 		claim.Namespace, claim.Name, claim.Spec.Version,
 		ownerKind, ownerName, ownerUID,
-	).Set(poolSize)
+	).Set(float64(*status.PoolSize))
 
 	if status.NextScaleDownTime == nil {
 		metrics.DeleteIPPoolClaimNextScaleDownTime(claim.Namespace, claim.Name)
@@ -716,50 +752,4 @@ func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.I
 	).Set(float64(status.NextScaleDownTime.Unix()))
 
 	return nil
-}
-
-// getLastScaleDownTime gets the current status of IPPoolClaim.
-func getIPPoolClaimStatus(alloc *ipBlockAllocation, claim *requeueipv1.IPPoolClaim) (*requeueipv1.IPPoolClaimStatus, error) {
-	ranges, err := iprange.Parse(alloc.pool.Spec.Ranges...)
-	if err != nil {
-		return nil, err
-	}
-
-	poolSize := ranges.Size().Int64()
-	next, err := getNextScaleDownTime(claim, int(poolSize), alloc.step)
-	if err != nil {
-		return nil, err
-	}
-
-	return &requeueipv1.IPPoolClaimStatus{
-		Subnet:            &alloc.pool.Spec.Subnet,
-		PoolSize:          ptr.To(int32(poolSize)),
-		NextScaleDownTime: next,
-	}, nil
-}
-
-// getNextScaleDownTime gets the next time for scaling down.
-func getNextScaleDownTime(claim *requeueipv1.IPPoolClaim, poolSize, step int) (*metav1.Time, error) {
-	// Delay scaling down not enabled.
-	if *claim.Spec.ScaleDownDelay == "0" {
-		return nil, nil
-	}
-
-	// No wasted IPBlocks or IPPool has just completed scaling up/down.
-	if poolSize-int(claim.Spec.Replicas) < step {
-		return nil, nil
-	}
-
-	// Do not re-update to now, this may lead to malicious delayed scaling down.
-	if claim.Status.NextScaleDownTime != nil {
-		return claim.Status.NextScaleDownTime, nil
-	}
-
-	delay, err := str2duration.ParseDuration(*claim.Spec.ScaleDownDelay)
-	if err != nil {
-		return nil, err
-	}
-	next := metav1.NewTime(metav1.Now().Add(delay))
-
-	return &next, nil
 }

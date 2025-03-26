@@ -128,10 +128,10 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			Free:  new(big.Int).Div(free.Size(), step).String(),
 		},
 	}
-
 	if reflect.DeepEqual(status, &rn.Status) {
 		return ctrl.Result{}, nil
 	}
+
 	old := rn.DeepCopy()
 	rn.Status = *status
 
