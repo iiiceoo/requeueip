@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"net"
 	"strings"
+
+	"github.com/iiiceoo/iprange"
 )
 
 const (
@@ -41,27 +43,6 @@ func IPToName(ip net.IP) string {
 	return n
 }
 
-// NameToIP converts resource name to IP address based on the IP version.
-func NameToIP(version, name string) (net.IP, error) {
-	var sep string
-	switch version {
-	case IPv4:
-		sep = "."
-	case IPv6:
-		sep = ":"
-	default:
-		return nil, fmt.Errorf("invalid IP version: %s", version)
-	}
-
-	ipStr := strings.ReplaceAll(name, "-", sep)
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return nil, fmt.Errorf("failed to parse %s IP address: %s", version, name)
-	}
-
-	return ip, nil
-}
-
 // NameToCIDRIP converts resource name to IP address(CIDR) based on the IP
 // version.
 func NameToCIDRIP(version, name string) (*net.IPNet, error) {
@@ -81,4 +62,50 @@ func NameToCIDRIP(version, name string) (*net.IPNet, error) {
 		IP:   ip,
 		Mask: mask,
 	}, nil
+}
+
+// NameToIP converts resource name to IP address based on the IP version.
+func NameToIP(version, name string) (net.IP, error) {
+	ipStr, err := nameToIPString(version, name)
+	if err != nil {
+		return nil, err
+	}
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return nil, fmt.Errorf("failed to parse %s IP address: %s", version, name)
+	}
+
+	return ip, nil
+}
+
+// NamesToIPIPRanges converts resource names to IPRanges (IP) based on the IP
+// version.
+func NamesToIPIPRanges(version string, names ...string) (*iprange.IPRanges, error) {
+	ips := make([]string, 0, len(names))
+	for _, n := range names {
+		ip, err := nameToIPString(version, n)
+		if err != nil {
+			return nil, err
+		}
+		ips = append(ips, ip)
+	}
+
+	return iprange.Parse(ips...)
+}
+
+// nameToString converts resource name to IP address string based on the IP
+// version.
+func nameToIPString(version, name string) (string, error) {
+	var sep string
+	switch version {
+	case IPv4:
+		sep = "."
+	case IPv6:
+		sep = ":"
+	default:
+		return "", fmt.Errorf("invalid IP version: %s", version)
+	}
+
+	return strings.ReplaceAll(name, "-", sep), nil
 }

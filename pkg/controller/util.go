@@ -25,28 +25,20 @@ import (
 
 // parseRangesFromIPs aggregates multiple IPs into unmerged IPRanges.
 func parseRangesFromIPs(version string, ips []requeueipv1.IP) (*iprange.IPRanges, error) {
-	ipStrs := make([]string, 0, len(ips))
+	names := make([]string, 0, len(ips))
 	for i := 0; i < len(ips); i++ {
-		ip, err := net.NameToIP(version, ips[i].Name)
-		if err != nil {
-			return nil, err
-		}
-		ipStrs = append(ipStrs, ip.String())
+		names = append(names, ips[i].Name)
 	}
 
-	return iprange.Parse(ipStrs...)
+	return net.NamesToIPIPRanges(version, names...)
 }
 
 // parseRangesFromIPBlocks aggregates multiple IPBlocks into unmerged IPRanges.
 func parseRangesFromIPBlocks(version string, blocks []requeueipv1.IPBlock) (*iprange.IPRanges, error) {
-	blockStrs := make([]string, 0, len(blocks))
+	names := make([]string, 0, len(blocks))
 	for i := 0; i < len(blocks); i++ {
-		ipNet, err := net.NameToCIDR(version, blocks[i].Name)
-		if err != nil {
-			return nil, err
-		}
-		blockStrs = append(blockStrs, ipNet.String())
+		names = append(names, blocks[i].Name)
 	}
 
-	return iprange.Parse(blockStrs...)
+	return net.NamesToCIDRIPRanges(version, names...)
 }

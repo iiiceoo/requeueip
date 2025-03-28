@@ -425,16 +425,15 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 		return newErrorRequeueAfter(5 * time.Second)
 	}
 
-	// Do not get the free IPRanges of IPPool in getIPBlockAllocation, as the
-	// status of IPPool may not be ready yet.
 	free, err := iprange.Parse(alloc.pool.Status.Free...)
 	if err != nil {
 		return err
 	}
 
 	ranges := alloc.poolRanges.Diff(free)
+	old := alloc.pool.DeepCopy()
 	alloc.pool.Spec.Ranges = ranges.Strings()
-	if err := r.client.Update(ctx, alloc.pool); err != nil {
+	if err := r.client.Patch(ctx, alloc.pool, client.MergeFrom(old)); err != nil {
 		return err
 	}
 
@@ -539,8 +538,6 @@ func (r *claimReconciler) scaleUpWithinIPBlocks(
 	old := alloc.pool.DeepCopy()
 	alloc.pool.Spec.Ranges = dr.Union(alloc.poolRanges).Strings()
 
-	// No other component attempts to update the IPPool spec, using patch to
-	// avoid conflicts.
 	return r.client.Patch(ctx, alloc.pool, client.MergeFrom(old))
 }
 
@@ -653,12 +650,7 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ipNet, err := net.NameToCIDR(pool.Spec.Version, blocks[i].Name)
-			if err != nil {
-				errCh <- err
-				return
-			}
-			br, err := iprange.Parse(ipNet.String())
+			br, err := net.NamesToCIDRIPRanges(pool.Spec.Version, blocks[i].Name)
 			if err != nil {
 				errCh <- err
 				return

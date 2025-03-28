@@ -131,11 +131,11 @@ func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			continue
 		}
 
-		ok, err := isRunningSTSPod(&sts, podName)
+		running, err := isRunningSTSPod(&sts, podName)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if ok {
+		if running {
 			continue
 		}
 

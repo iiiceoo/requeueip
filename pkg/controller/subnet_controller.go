@@ -77,11 +77,11 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if !rn.DeletionTimestamp.IsZero() {
-		ok, err := r.cleanUpSubnet(ctx, &rn)
+		done, err := r.cleanUpSubnet(ctx, &rn)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if ok {
+		if done {
 			return ctrl.Result{}, nil
 		}
 	}

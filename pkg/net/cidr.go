@@ -21,6 +21,8 @@ import (
 	"math/big"
 	"net"
 	"strings"
+
+	"github.com/iiiceoo/iprange"
 )
 
 // CIDRToName converts CIDR string to resource name.
@@ -44,19 +46,9 @@ func CIDRToName(cidr *net.IPNet) string {
 
 // NameToCIDR converts resource name to CIDR based on the IP version.
 func NameToCIDR(version, name string) (*net.IPNet, error) {
-	var cidr string
-	switch version {
-	case IPv4:
-		parts := strings.Split(name, "-")
-		if len(parts) != 5 {
-			return nil, fmt.Errorf("invalid IPv4 CIDR name: %s", name)
-		}
-		cidr = strings.Join(parts[:4], ".") + "/" + parts[4]
-	case IPv6:
-		index := strings.LastIndex(name, "-")
-		cidr = strings.ReplaceAll(name[:index], "-", ":") + "/" + name[index+1:]
-	default:
-		return nil, fmt.Errorf("invalid IP version: %s", version)
+	cidr, err := nameToCIDRString(version, name)
+	if err != nil {
+		return nil, err
 	}
 
 	_, ipNet, err := net.ParseCIDR(cidr)
@@ -65,6 +57,42 @@ func NameToCIDR(version, name string) (*net.IPNet, error) {
 	}
 
 	return ipNet, nil
+}
+
+// NamesToCIDRIPRanges converts resource names to IPRanges (CIDR) based on the
+// IP version.
+func NamesToCIDRIPRanges(version string, names ...string) (*iprange.IPRanges, error) {
+	cidrs := make([]string, 0, len(names))
+	for _, n := range names {
+		cidr, err := nameToCIDRString(version, n)
+		if err != nil {
+			return nil, err
+		}
+		cidrs = append(cidrs, cidr)
+	}
+
+	return iprange.Parse(cidrs...)
+}
+
+// nameToCIDRString converts resource name to CIDR string based on the IP
+// version.
+func nameToCIDRString(version, name string) (string, error) {
+	var cidr string
+	switch version {
+	case IPv4:
+		parts := strings.Split(name, "-")
+		if len(parts) != 5 {
+			return "", fmt.Errorf("invalid IPv4 CIDR name: %s", name)
+		}
+		cidr = strings.Join(parts[:4], ".") + "/" + parts[4]
+	case IPv6:
+		index := strings.LastIndex(name, "-")
+		cidr = strings.ReplaceAll(name[:index], "-", ":") + "/" + name[index+1:]
+	default:
+		return "", fmt.Errorf("invalid IP version: %s", version)
+	}
+
+	return cidr, nil
 }
 
 // CountFromMaskSize calculates the number of IP addresses based on the size of

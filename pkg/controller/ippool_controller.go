@@ -78,11 +78,11 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	if !rp.DeletionTimestamp.IsZero() {
-		ok, err := r.cleanUpIPool(ctx, &rp)
+		done, err := r.cleanUpIPool(ctx, &rp)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if ok {
+		if done {
 			return ctrl.Result{}, nil
 		}
 	}
