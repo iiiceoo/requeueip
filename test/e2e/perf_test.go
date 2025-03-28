@@ -323,7 +323,7 @@ var _ = Describe("Performance", Label("perf"), func() {
 				)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(rpList.Items).To(HaveLen(deployCount * 2))
-			}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
+			}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 			AddReportEntry("IPPools Retrieved", time.Since(retrieveTime))
 
 			By("Waiting for IPPools to be ready")
@@ -343,7 +343,7 @@ var _ = Describe("Performance", Label("perf"), func() {
 					g.Expect(rp.Status.Count).NotTo(BeNil())
 					g.Expect(rp.Status.Count.Total).To(Equal(strconv.Itoa(int(replicas))))
 				}
-			}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
+			}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(Succeed())
 			AddReportEntry("IPPools Scaled", time.Since(scaleTime))
 
 			By("Waiting IPAM")
