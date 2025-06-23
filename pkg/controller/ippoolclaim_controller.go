@@ -63,6 +63,7 @@ type claimReconciler struct {
 func (r *claimReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&requeueipv1.IPPoolClaim{}).
+		Owns(&requeueipv1.IPPool{}).
 		Complete(r)
 }
 
@@ -255,7 +256,11 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 		}
 	}
 
-	return nil, fmt.Errorf("no Subnets are available in %s: invalid Subnet or %w", claim.Spec.Subnets, errInsufficientIPBlocks)
+	return nil, fmt.Errorf(
+		"no Subnets are available in %s: invalid Subnet or %w",
+		claim.Spec.Subnets,
+		errInsufficientIPBlocks,
+	)
 }
 
 // scale scales the size of the IPPool up or down to workload replicas.
@@ -289,7 +294,7 @@ func (r *claimReconciler) scale(ctx context.Context, alloc *ipBlockAllocation) e
 
 	if err := r.scaleDown(ctx, alloc); err != nil {
 		return fmt.Errorf(
-			"failed to scale down the size of IPPool to %d from Subnet %s: %w",
+			"failed to scale down the size of IPPool to %d from Subnet %s: %v",
 			alloc.replicas,
 			alloc.subnet.Name,
 			err,
@@ -411,7 +416,7 @@ func getNextScaleDownTime(claim *requeueipv1.IPPoolClaim, poolSize, step int) (*
 // scaleDown scales down IPPool and releases unused IPBlocks.
 func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocation) error {
 	if alloc.pool.Status.Count == nil {
-		return newErrorRequeue()
+		return nil
 	}
 
 	used, err := strconv.Atoi(alloc.pool.Status.Count.Used)
@@ -419,10 +424,12 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 		return err
 	}
 
-	// Wait for the replica of workload to converge before scaling down IPPool.
-	// The default DeletionGracePeriodSeconds for Pod is 30 seconds.
-	if used != alloc.replicas {
-		return newErrorRequeueAfter(5 * time.Second)
+	// Wait for the replica of workload to converge before scaling down
+	// auto-created IPPool.
+	if _, ok := alloc.pool.Labels[consts.LabelRefWorkloadUID]; ok {
+		if used != alloc.replicas {
+			return nil
+		}
 	}
 
 	free, err := iprange.Parse(alloc.pool.Status.Free...)
@@ -431,6 +438,10 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 	}
 
 	ranges := alloc.poolRanges.Diff(free)
+	if used < alloc.replicas {
+		ranges = ranges.Union(free.Slice(consts.BigInt[0], big.NewInt(int64(alloc.replicas-used-1))))
+	}
+
 	old := alloc.pool.DeepCopy()
 	alloc.pool.Spec.Ranges = ranges.Strings()
 	if err := r.client.Patch(ctx, alloc.pool, client.MergeFrom(old)); err != nil {
