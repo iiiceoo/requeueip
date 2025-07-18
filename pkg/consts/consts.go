@@ -38,17 +38,16 @@ const (
 )
 
 const (
-	refPrefix           = "reference" + "." + RPrefix
-	LabelRefNamespace   = refPrefix + "/" + "ns"
-	LabelRefSubnet      = refPrefix + "/" + "subnet"
-	LabelRefIPPool      = refPrefix + "/" + "ippool"
-	LabelRefWorkloadUID = refPrefix + "/" + "workload-uid"
-	LabelRefPodUID      = refPrefix + "/" + "pod-uid"
+	LabelRefNamespace   = RPrefix + "/" + "ns-ref"
+	LabelRefSubnet      = RPrefix + "/" + "subnet-ref"
+	LabelRefIPPool      = RPrefix + "/" + "ippool-ref"
+	LabelRefWorkloadUID = RPrefix + "/" + "workload-uid"
+	LabelRefPodUID      = RPrefix + "/" + "pod-uid"
 )
 
 const (
 	LabelRefSTSUID = RPrefix + "/" + "sts-uid"
-	LabelRefPod    = RPrefix + "/" + "pod"
+	LabelRefPod    = RPrefix + "/" + "pod-ref"
 )
 
 const LabelIPVersion = RPrefix + "/" + "ip-version"
