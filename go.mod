@@ -14,7 +14,6 @@ require (
 	github.com/onsi/gomega v1.33.0
 	github.com/prometheus/client_golang v1.18.0
 	github.com/spf13/cobra v1.8.0
-	github.com/xhit/go-str2duration/v2 v2.1.0
 	go.uber.org/zap v1.27.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.4

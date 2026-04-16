@@ -24,7 +24,6 @@ import (
 	"strings"
 	"sync"
 
-	str2duration "github.com/xhit/go-str2duration/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,33 +69,23 @@ func (c *rpcClient) parseClaims(
 		v4Str = ns.Annotations[consts.AnnoIPv4Subnets]
 		v6Str = ns.Annotations[consts.AnnoIPv6Subnets]
 	}
+
 	v4Subnets := parseArray(v4Str)
 	v6Subnets := parseArray(v6Str)
-
-	delay := annotations[consts.AnnoScaleDownDelay]
-	if delay == "" {
-		delay = "0"
-	}
-	_, err := str2duration.ParseDuration(delay)
-	if err != nil {
-		return nil, err
-	}
 
 	var claims []requeueipv1.IPPoolClaimSpec
 	if len(v4Subnets) != 0 {
 		claims = append(claims, requeueipv1.IPPoolClaimSpec{
-			Version:        net.IPv4,
-			Subnets:        v4Subnets,
-			Replicas:       replicas,
-			ScaleDownDelay: &delay,
+			Version:  net.IPv4,
+			Subnets:  v4Subnets,
+			Replicas: replicas,
 		})
 	}
 	if len(v6Subnets) != 0 {
 		claims = append(claims, requeueipv1.IPPoolClaimSpec{
-			Version:        net.IPv6,
-			Subnets:        v6Subnets,
-			Replicas:       replicas,
-			ScaleDownDelay: &delay,
+			Version:  net.IPv6,
+			Subnets:  v6Subnets,
+			Replicas: replicas,
 		})
 	}
 

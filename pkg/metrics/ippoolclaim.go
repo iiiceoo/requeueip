@@ -26,12 +26,10 @@ import (
 const None = "<none>"
 
 const (
-	claimSystem             = consts.APP + "_" + "ippool_claim"
-	replicasKey             = "replicas"
-	scaleDownDelaySecondKey = "scale_down_delay_second"
-	selectedSubnetKey       = "selected_subnet"
-	poolSizeKey             = "pool_size"
-	nextScaleDownTimeKey    = "next_scale_down_time"
+	claimSystem       = consts.APP + "_" + "ippool_claim"
+	replicasKey       = "replicas"
+	selectedSubnetKey = "selected_subnet"
+	poolSizeKey       = "pool_size"
 )
 
 var (
@@ -40,15 +38,6 @@ var (
 		Name:      replicasKey,
 		Help: "The total number of IP addresses of the IPPool to be synced. " +
 			"It should always be consistent with the replica of the owner workload.",
-	}, []string{
-		"namespace", "name", "version",
-		"owner_kind", "owner_name", "owner_uid",
-	})
-
-	scaleDownDelaySecondGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: claimSystem,
-		Name:      scaleDownDelaySecondKey,
-		Help:      "The delay for IPPool scaling down.",
 	}, []string{
 		"namespace", "name", "version",
 		"owner_kind", "owner_name", "owner_uid",
@@ -71,34 +60,16 @@ var (
 		"namespace", "name", "version",
 		"owner_kind", "owner_name", "owner_uid",
 	})
-
-	nextScaleDownTimeGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: claimSystem,
-		Name:      nextScaleDownTimeKey,
-		Help:      "The next available time for scaling down.",
-	}, []string{
-		"namespace", "name", "version",
-		"owner_kind", "owner_name", "owner_uid",
-	})
 )
 
 func init() {
 	metrics.Registry.MustRegister(replicasGauge)
-	metrics.Registry.MustRegister(scaleDownDelaySecondGauge)
 	metrics.Registry.MustRegister(selectedSubnetGauge)
 	metrics.Registry.MustRegister(poolSizeGauge)
-	metrics.Registry.MustRegister(nextScaleDownTimeGauge)
 }
 
 func IPPoolClaimReplicas(namespace, name, version, ownerKind, ownerName, ownerUID string) prometheus.Gauge {
 	return replicasGauge.WithLabelValues(
-		namespace, name, version,
-		ownerKind, ownerName, ownerUID,
-	)
-}
-
-func IPPoolClaimScaleDownDelaySecond(namespace, name, version, ownerKind, ownerName, ownerUID string) prometheus.Gauge {
-	return scaleDownDelaySecondGauge.WithLabelValues(
 		namespace, name, version,
 		ownerKind, ownerName, ownerUID,
 	)
@@ -118,29 +89,12 @@ func IPPoolClaimPoolSize(namespace, name, version, ownerKind, ownerName, ownerUI
 	)
 }
 
-func IPPoolClaimNextScaleDownTime(namespace, name, version, ownerKind, ownerName, ownerUID string) prometheus.Gauge {
-	return nextScaleDownTimeGauge.WithLabelValues(
-		namespace, name, version,
-		ownerKind, ownerName, ownerUID,
-	)
-}
-
 func DeleteIPPoolClaim(namespace, name string) {
 	labels := map[string]string{
 		"namespace": namespace,
 		"name":      name,
 	}
 	replicasGauge.DeletePartialMatch(labels)
-	scaleDownDelaySecondGauge.DeletePartialMatch(labels)
 	selectedSubnetGauge.DeletePartialMatch(labels)
 	poolSizeGauge.DeletePartialMatch(labels)
-	nextScaleDownTimeGauge.DeletePartialMatch(labels)
-}
-
-func DeleteIPPoolClaimNextScaleDownTime(namespace, name string) {
-	labels := map[string]string{
-		"namespace": namespace,
-		"name":      name,
-	}
-	nextScaleDownTimeGauge.DeletePartialMatch(labels)
 }

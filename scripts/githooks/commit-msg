@@ -34,7 +34,7 @@ fi
 # Check commit message with pattern string.
 check_msg=$(cat $1 | egrep "^(feat|perf|refactor|style|fix|docs|test|e2e|build|charts|ci|chore|release|cherry-pick)(\([^)]+\))?:\s(\S|\w)+")
 if [ "$check_msg" = "" ]; then
-	echo -e "Invalid commit message format, please use the correct format: \
+	echo "Invalid commit message format, please use the correct format: \
     \nfeat: add webhooks \
     \nfix: handle events on blur (close #28)"
 	exit 1

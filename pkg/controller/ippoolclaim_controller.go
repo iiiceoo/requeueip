@@ -24,10 +24,8 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/iiiceoo/iprange"
-	str2duration "github.com/xhit/go-str2duration/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,7 +113,26 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ignoreRequeue(err)
 	}
 
-	return ctrl.Result{}, r.syncIPPoolClaimStatus(ctx, alloc)
+	// alloc.poolSize is stale.
+	ranges, err := iprange.Parse(alloc.pool.Spec.Ranges...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	status := &requeueipv1.IPPoolClaimStatus{
+		Subnet:   &alloc.subnet.Name,
+		PoolSize: ptr.To(int32(ranges.Size().Int64())),
+	}
+
+	setIPPoolClaimMetrics(alloc.claim, status)
+	if reflect.DeepEqual(status, &alloc.claim.Status) {
+		return ctrl.Result{}, nil
+	}
+
+	old := alloc.claim.DeepCopy()
+	alloc.claim.Status = *status
+
+	return ctrl.Result{}, r.client.Status().Patch(ctx, alloc.claim, client.MergeFrom(old))
 }
 
 // getOwnerMetadata gets the metadata of owner resource. It is commonly used to
@@ -281,17 +298,6 @@ func (r *claimReconciler) scale(ctx context.Context, alloc *ipBlockAllocation) e
 		return nil
 	}
 
-	// Delayed scale-down.
-	if alloc.nsdTime != nil {
-		now := time.Now()
-		if now.Before(alloc.nsdTime.Time) {
-			if err := r.syncIPPoolClaimStatus(ctx, alloc); err != nil {
-				return err
-			}
-			return newErrorRequeueAfter(alloc.nsdTime.DeepCopy().Sub(now))
-		}
-	}
-
 	if err := r.scaleDown(ctx, alloc); err != nil {
 		return fmt.Errorf(
 			"failed to scale down the size of IPPool to %d from Subnet %s: %v",
@@ -335,9 +341,6 @@ type ipBlockAllocation struct {
 
 	// The expected size of the IPPool.
 	replicas int
-
-	// The next time for delayed scale-down.
-	nsdTime *metav1.Time
 }
 
 // getIPBlockAllocation gets allocaion of IPBlock for IPPool scaling up/down.
@@ -357,60 +360,27 @@ func getIPBlockAllocation(
 	if err != nil {
 		return nil, err
 	}
-	count := new(big.Int)
-	count.SetString(subnet.Status.BlockCount.Free, 10)
 
 	bStep, err := net.CountFromMaskSize(*subnet.Spec.Version, int(*subnet.Spec.BlockSize))
 	if err != nil {
 		return nil, err
 	}
 
-	poolSize := int(ranges.Size().Int64())
-	step := int(bStep.Int64())
-	nsdTime, err := getNextScaleDownTime(claim, poolSize, step)
-	if err != nil {
-		return nil, err
-	}
+	count := new(big.Int)
+	count.SetString(subnet.Status.BlockCount.Free, 10)
 
 	return &ipBlockAllocation{
 		pool:           pool,
 		poolRanges:     ranges,
-		poolSize:       poolSize,
+		poolSize:       int(ranges.Size().Int64()),
 		subnet:         subnet,
 		freeRanges:     free,
 		freeBlockCount: count,
-		step:           step,
+		step:           int(bStep.Int64()),
 		bStep:          bStep,
 		claim:          claim,
 		replicas:       int(claim.Spec.Replicas),
-		nsdTime:        nsdTime,
 	}, nil
-}
-
-// getNextScaleDownTime gets the next time for delayed scale-down.
-func getNextScaleDownTime(claim *requeueipv1.IPPoolClaim, poolSize, step int) (*metav1.Time, error) {
-	// Delayed scale-down not enabled.
-	if *claim.Spec.ScaleDownDelay == "0" {
-		return nil, nil
-	}
-
-	// 1. Need scaling up.
-	// 2. No wasted IPBlocks.
-	if poolSize-int(claim.Spec.Replicas) < step {
-		return nil, nil
-	}
-
-	if claim.Status.NextScaleDownTime != nil {
-		return claim.Status.NextScaleDownTime, nil
-	}
-
-	delay, err := str2duration.ParseDuration(*claim.Spec.ScaleDownDelay)
-	if err != nil {
-		return nil, err
-	}
-	next := metav1.NewTime(metav1.Now().Add(delay))
-
-	return &next, nil
 }
 
 // scaleDown scales down IPPool and releases unused IPBlocks.
@@ -686,39 +656,8 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 	return nil
 }
 
-// syncIPPoolClaimStatus sync the status and metrics of IPPoolClaim.
-func (r *claimReconciler) syncIPPoolClaimStatus(ctx context.Context, alloc *ipBlockAllocation) error {
-	// alloc.poolSize is stale.
-	ranges, err := iprange.Parse(alloc.pool.Spec.Ranges...)
-	if err != nil {
-		return err
-	}
-
-	status := &requeueipv1.IPPoolClaimStatus{
-		Subnet:            &alloc.subnet.Name,
-		PoolSize:          ptr.To(int32(ranges.Size().Int64())),
-		NextScaleDownTime: alloc.nsdTime,
-	}
-	if err := setIPPoolClaimMetrics(alloc.claim, status); err != nil {
-		return err
-	}
-	if reflect.DeepEqual(status, &alloc.claim.Status) {
-		return nil
-	}
-
-	old := alloc.claim.DeepCopy()
-	alloc.claim.Status = *status
-
-	return r.client.Status().Patch(ctx, alloc.claim, client.MergeFrom(old))
-}
-
 // setIPPoolClaimMetrics sets custom IPPoolClaim metrics.
-func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.IPPoolClaimStatus) error {
-	delay, err := str2duration.ParseDuration(*claim.Spec.ScaleDownDelay)
-	if err != nil {
-		return err
-	}
-
+func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.IPPoolClaimStatus) {
 	ownerKind, ownerName, ownerUID := metrics.None, metrics.None, metrics.None
 	owner := metav1.GetControllerOf(claim)
 	if owner != nil {
@@ -731,10 +670,6 @@ func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.I
 		claim.Namespace, claim.Name, claim.Spec.Version,
 		ownerKind, ownerName, ownerUID,
 	).Set(float64(claim.Spec.Replicas))
-	metrics.IPPoolClaimScaleDownDelaySecond(
-		claim.Namespace, claim.Name, claim.Spec.Version,
-		ownerKind, ownerName, ownerUID,
-	).Set(delay.Seconds())
 	metrics.IPPoolClaimSelectedSubnet(
 		claim.Namespace, claim.Name, claim.Spec.Version,
 		*status.Subnet, ownerKind, ownerName, ownerUID,
@@ -743,16 +678,4 @@ func setIPPoolClaimMetrics(claim *requeueipv1.IPPoolClaim, status *requeueipv1.I
 		claim.Namespace, claim.Name, claim.Spec.Version,
 		ownerKind, ownerName, ownerUID,
 	).Set(float64(*status.PoolSize))
-
-	if status.NextScaleDownTime == nil {
-		metrics.DeleteIPPoolClaimNextScaleDownTime(claim.Namespace, claim.Name)
-		return nil
-	}
-
-	metrics.IPPoolClaimNextScaleDownTime(
-		claim.Namespace, claim.Name, claim.Spec.Version,
-		ownerKind, ownerName, ownerUID,
-	).Set(float64(status.NextScaleDownTime.Unix()))
-
-	return nil
 }

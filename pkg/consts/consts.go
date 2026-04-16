@@ -58,7 +58,6 @@ const (
 	AnnoIPv6Subnets          = RPrefix + "/" + "ipv6-subnets"
 	AnnoIPv4IPPools          = RPrefix + "/" + "ipv4-pools"
 	AnnoIPv6IPPools          = RPrefix + "/" + "ipv6-pools"
-	AnnoScaleDownDelay       = RPrefix + "/" + "scale-down-delay"
 )
 
 const (

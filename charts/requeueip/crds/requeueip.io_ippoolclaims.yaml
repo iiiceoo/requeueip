@@ -35,10 +35,6 @@ spec:
       jsonPath: .status.poolSize
       name: POOL-SIZE
       type: integer
-    - description: The delay for IPPool scaling down.
-      jsonPath: .spec.scaleDownDelay
-      name: SCALE-DOWN-DELAY
-      type: string
     - description: The age of IPPoolClaim.
       jsonPath: .metadata.creationTimestamp
       name: AGE
@@ -75,13 +71,6 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
-              scaleDownDelay:
-                default: "0"
-                description: |-
-                  The delay for IPPool scaling down. Support format like "1w2d6h3s" (1 week
-                  2 days 6 hours and 3 seconds). Default to "0" means disabled.
-                pattern: ^(?:(\d+w|\d+d|\d+h|\d+m|\d+s)+|0)$
-                type: string
               subnets:
                 description: List of candidate Subnet names for IP address assignments.
                 items:
@@ -102,12 +91,6 @@ spec:
           status:
             description: IPPoolClaimStatus defines the observed state of IPPoolClaim.
             properties:
-              nextScaleDownTime:
-                description: |-
-                  The next available time for scaling down. Nil indicates that ScaleDownDelay
-                  is disabled or there is not much waste in the IPPool.
-                format: date-time
-                type: string
               poolSize:
                 description: The current size of the IPPool created based on the claim.
                 format: int32

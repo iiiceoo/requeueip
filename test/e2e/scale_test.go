@@ -17,7 +17,6 @@ limitations under the License.
 package e2e_test
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"sync/atomic"
@@ -311,65 +310,6 @@ var _ = Describe("Scale", Label("common", "scale"), func() {
 				g.Expect(sts.Status.UpdatedReplicas).To(Equal(target))
 				g.Expect(sts.Status.ReadyReplicas).To(Equal(target))
 			}).WithTimeout(10 * time.Second).WithPolling(time.Second).WithContext(ctx).Should(Succeed())
-
-			By(fmt.Sprintf("Waiting for the size of IPPools to scale down to %d", target))
-			Eventually(func(g Gomega) {
-				err := c.Get(ctx, types.NamespacedName{
-					Namespace: v4IPPool.Namespace,
-					Name:      v4IPPool.Name,
-				}, v4IPPool)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(v4IPPool.Status.Count.Total).To(Equal(strconv.Itoa(int(target))))
-
-				err = c.Get(ctx, types.NamespacedName{
-					Namespace: v6IPPool.Namespace,
-					Name:      v6IPPool.Name,
-				}, v6IPPool)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(v6IPPool.Status.Count.Total).To(Equal(strconv.Itoa(int(target))))
-			}).WithTimeout(10 * time.Second).WithPolling(time.Second).WithContext(ctx).Should(Succeed())
-		})
-
-		It("down gracefully", func(ctx SpecContext) {
-			target := int32(0)
-			By(fmt.Sprintf("Scaling down StatefulSet %s/%s to %d replicas", sts.Namespace, sts.Name, target))
-			delay := 10
-			sts.Spec.Template.Annotations[consts.AnnoScaleDownDelay] = fmt.Sprintf("%ds", delay)
-			sts.Spec.Replicas = ptr.To(target)
-			err := c.Update(ctx, sts)
-			Expect(err).NotTo(HaveOccurred())
-
-			dCtx, cancel := context.WithTimeout(ctx, time.Duration(delay)*time.Second)
-			defer cancel()
-
-			By(fmt.Sprintf("Waiting for StatefulSet %s/%s to scale down to %d replicas", sts.Namespace, sts.Name, target))
-			Eventually(func(g Gomega) {
-				err := c.Get(ctx, types.NamespacedName{
-					Namespace: sts.Namespace,
-					Name:      sts.Name,
-				}, sts)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(sts.Status.ObservedGeneration).To(Equal(sts.Generation))
-				g.Expect(sts.Status.UpdatedReplicas).To(Equal(target))
-				g.Expect(sts.Status.ReadyReplicas).To(Equal(target))
-			}).WithPolling(time.Second).WithContext(dCtx).Should(Succeed())
-
-			By(fmt.Sprintf("Checking that the size of IPPools remains at %d", replicas))
-			Consistently(func(g Gomega) {
-				err := c.Get(ctx, types.NamespacedName{
-					Namespace: v4IPPool.Namespace,
-					Name:      v4IPPool.Name,
-				}, v4IPPool)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(v4IPPool.Status.Count.Total).To(Equal(strconv.Itoa(int(replicas))))
-
-				err = c.Get(ctx, types.NamespacedName{
-					Namespace: v6IPPool.Namespace,
-					Name:      v6IPPool.Name,
-				}, v6IPPool)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(v6IPPool.Status.Count.Total).To(Equal(strconv.Itoa(int(replicas))))
-			}).WithPolling(time.Second).WithContext(dCtx).Should(Succeed())
 
 			By(fmt.Sprintf("Waiting for the size of IPPools to scale down to %d", target))
 			Eventually(func(g Gomega) {
