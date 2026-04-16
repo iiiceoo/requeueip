@@ -18,7 +18,6 @@ package controller
 
 import (
 	"errors"
-	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -37,11 +36,6 @@ func (e *errRequeue) Error() string {
 // newErrorRequeue returns an error for requeuing.
 func newErrorRequeue() error {
 	return &errRequeue{Requeue: true}
-}
-
-// newErrorRequeueAfter returns an error for delayed requeuing.
-func newErrorRequeueAfter(delay time.Duration) error {
-	return &errRequeue{RequeueAfter: delay}
 }
 
 // ignoreRequeue converts error to the result of Reconciler.

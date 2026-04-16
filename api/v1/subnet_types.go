@@ -40,8 +40,8 @@ type SubnetSpec struct {
 
 	// +kubebuilder:validation:Optional
 
-	// BlockSize specifies the minimum unit of IP address assignments from the Subnet.
-	// Defaults to 30 for IPv4 and 126 for IPv6.
+	// BlockSize specifies the minimum unit of IP address assignments from the
+	// Subnet. Defaults to 30 for IPv4 and 126 for IPv6.
 	BlockSize *int32 `json:"blockSize,omitempty"`
 }
 
