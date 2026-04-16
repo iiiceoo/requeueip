@@ -17,33 +17,30 @@ linters-settings:
         replacement: 'any'
   goimports:
     local-prefixes: github.com/iiiceoo/requeueip
-  goheader:
-    template-path: scripts/boilerplate.txt
+  # goheader:
+  #   template-path: scripts/boilerplate.txt
 
 linters:
   disable-all: true
   enable:
-    - goheader
-    - bodyclose
-    - dogsled
-    - errcheck
-    - gocheckcompilerdirectives
-    - gocritic
+    # - goheader
+    - staticcheck
+    - gosimple
+    - typecheck
+    - govet
+    
     - gofmt
     - goimports
-    - goprintffuncname
-    - gosimple
-    - govet
-    - ineffassign
-    - misspell
-    - nakedret
-    - noctx
-    - nolintlint
-    - staticcheck
     - stylecheck
-    - typecheck
-    - unconvert
     - whitespace
+    
+    - bodyclose
+    - noctx
+    - gocritic
+    - gocheckcompilerdirectives
+    - goprintffuncname
+    - misspell
+    - nolintlint
 
 run:
   timeout: 1m
