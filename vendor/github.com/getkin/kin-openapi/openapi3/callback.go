@@ -2,13 +2,14 @@ package openapi3
 
 import (
 	"context"
-	"sort"
+	"slices"
 )
 
 // Callback is specified by OpenAPI/Swagger standard version 3.
 // See https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md#callback-object
 type Callback struct {
-	Extensions map[string]interface{} `json:"-" yaml:"-"`
+	Extensions map[string]any `json:"-" yaml:"-"`
+	Origin     *Origin        `json:"__origin__,omitempty" yaml:"__origin__,omitempty"`
 
 	m map[string]*PathItem
 }
@@ -42,7 +43,7 @@ func (callback *Callback) Validate(ctx context.Context, opts ...ValidationOption
 	for key := range callback.Map() {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, key := range keys {
 		v := callback.Value(key)
 		if err := v.Validate(ctx); err != nil {
@@ -51,4 +52,10 @@ func (callback *Callback) Validate(ctx context.Context, opts ...ValidationOption
 	}
 
 	return validateExtensions(ctx, callback.Extensions)
+}
+
+// UnmarshalJSON sets Callbacks to a copy of data.
+func (callbacks *Callbacks) UnmarshalJSON(data []byte) (err error) {
+	*callbacks, err = unmarshalStringMapP[CallbackRef](data)
+	return
 }

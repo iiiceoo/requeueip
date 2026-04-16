@@ -1,16 +1,18 @@
 package openapi3
 
 import (
+	"cmp"
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 )
 
 // Paths is specified by OpenAPI/Swagger standard version 3.
 // See https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md#paths-object
 type Paths struct {
-	Extensions map[string]interface{} `json:"-" yaml:"-"`
+	Extensions map[string]any `json:"-" yaml:"-"`
+	Origin     *Origin        `json:"__origin__,omitempty" yaml:"__origin__,omitempty"`
 
 	m map[string]*PathItem
 }
@@ -46,7 +48,7 @@ func (paths *Paths) Validate(ctx context.Context, opts ...ValidationOption) erro
 	for key := range paths.Map() {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, path := range keys {
 		pathItem := paths.Value(path)
 		if path == "" || path[0] != '/' {
@@ -77,7 +79,7 @@ func (paths *Paths) Validate(ctx context.Context, opts ...ValidationOption) erro
 		for method := range operations {
 			methods = append(methods, method)
 		}
-		sort.Strings(methods)
+		slices.Sort(methods)
 		for _, method := range methods {
 			operation := operations[method]
 			var setParams []string
@@ -158,7 +160,7 @@ func (paths *Paths) InMatchingOrder() []string {
 	ordered := make([]string, 0, paths.Len())
 	for c := 0; c <= max; c++ {
 		if ps, ok := vars[c]; ok {
-			sort.Sort(sort.Reverse(sort.StringSlice(ps)))
+			slices.SortFunc(ps, func(a, b string) int { return cmp.Compare(b, a) })
 			ordered = append(ordered, ps...)
 		}
 	}
@@ -216,21 +218,6 @@ func (paths *Paths) validateUniqueOperationIDs() error {
 		}
 	}
 	return nil
-}
-
-// Support YAML Marshaler interface for gopkg.in/yaml
-func (paths *Paths) MarshalYAML() (any, error) {
-	res := make(map[string]any, len(paths.Extensions)+len(paths.m))
-
-	for k, v := range paths.Extensions {
-		res[k] = v
-	}
-
-	for k, v := range paths.m {
-		res[k] = v
-	}
-
-	return res, nil
 }
 
 func normalizeTemplatedPath(path string) (string, uint, map[string]struct{}) {

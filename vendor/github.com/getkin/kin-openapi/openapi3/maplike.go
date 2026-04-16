@@ -2,7 +2,7 @@ package openapi3
 
 import (
 	"encoding/json"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/go-openapi/jsonpointer"
@@ -64,33 +64,44 @@ func (responses *Responses) Map() (m map[string]*ResponseRef) {
 var _ jsonpointer.JSONPointable = (*Responses)(nil)
 
 // JSONLookup implements https://github.com/go-openapi/jsonpointer#JSONPointable
-func (responses Responses) JSONLookup(token string) (interface{}, error) {
+func (responses Responses) JSONLookup(token string) (any, error) {
 	if v := responses.Value(token); v == nil {
 		vv, _, err := jsonpointer.GetForToken(responses.Extensions, token)
 		return vv, err
 	} else if ref := v.Ref; ref != "" {
 		return &Ref{Ref: ref}, nil
 	} else {
-		var vv *Response = v.Value
-		return vv, nil
+		return v.Value, nil
 	}
 }
 
-// MarshalJSON returns the JSON encoding of Responses.
-func (responses *Responses) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{}, responses.Len()+len(responses.Extensions))
+// MarshalYAML returns the YAML encoding of Responses.
+func (responses *Responses) MarshalYAML() (any, error) {
+	if responses == nil {
+		return nil, nil
+	}
+	m := make(map[string]any, responses.Len()+len(responses.Extensions))
 	for k, v := range responses.Extensions {
 		m[k] = v
 	}
 	for k, v := range responses.Map() {
 		m[k] = v
 	}
-	return json.Marshal(m)
+	return m, nil
+}
+
+// MarshalJSON returns the JSON encoding of Responses.
+func (responses *Responses) MarshalJSON() ([]byte, error) {
+	responsesYaml, err := responses.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(responsesYaml)
 }
 
 // UnmarshalJSON sets Responses to a copy of data.
 func (responses *Responses) UnmarshalJSON(data []byte) (err error) {
-	var m map[string]interface{}
+	var m map[string]any
 	if err = json.Unmarshal(data, &m); err != nil {
 		return
 	}
@@ -99,10 +110,10 @@ func (responses *Responses) UnmarshalJSON(data []byte) (err error) {
 	for k := range m {
 		ks = append(ks, k)
 	}
-	sort.Strings(ks)
+	slices.Sort(ks)
 
 	x := Responses{
-		Extensions: make(map[string]interface{}),
+		Extensions: make(map[string]any),
 		m:          make(map[string]*ResponseRef, len(m)),
 	}
 
@@ -183,33 +194,44 @@ func (callback *Callback) Map() (m map[string]*PathItem) {
 var _ jsonpointer.JSONPointable = (*Callback)(nil)
 
 // JSONLookup implements https://github.com/go-openapi/jsonpointer#JSONPointable
-func (callback Callback) JSONLookup(token string) (interface{}, error) {
+func (callback Callback) JSONLookup(token string) (any, error) {
 	if v := callback.Value(token); v == nil {
 		vv, _, err := jsonpointer.GetForToken(callback.Extensions, token)
 		return vv, err
 	} else if ref := v.Ref; ref != "" {
 		return &Ref{Ref: ref}, nil
 	} else {
-		var vv *PathItem = v
-		return vv, nil
+		return v, nil
 	}
 }
 
-// MarshalJSON returns the JSON encoding of Callback.
-func (callback *Callback) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{}, callback.Len()+len(callback.Extensions))
+// MarshalYAML returns the YAML encoding of Callback.
+func (callback *Callback) MarshalYAML() (any, error) {
+	if callback == nil {
+		return nil, nil
+	}
+	m := make(map[string]any, callback.Len()+len(callback.Extensions))
 	for k, v := range callback.Extensions {
 		m[k] = v
 	}
 	for k, v := range callback.Map() {
 		m[k] = v
 	}
-	return json.Marshal(m)
+	return m, nil
+}
+
+// MarshalJSON returns the JSON encoding of Callback.
+func (callback *Callback) MarshalJSON() ([]byte, error) {
+	callbackYaml, err := callback.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(callbackYaml)
 }
 
 // UnmarshalJSON sets Callback to a copy of data.
 func (callback *Callback) UnmarshalJSON(data []byte) (err error) {
-	var m map[string]interface{}
+	var m map[string]any
 	if err = json.Unmarshal(data, &m); err != nil {
 		return
 	}
@@ -218,10 +240,10 @@ func (callback *Callback) UnmarshalJSON(data []byte) (err error) {
 	for k := range m {
 		ks = append(ks, k)
 	}
-	sort.Strings(ks)
+	slices.Sort(ks)
 
 	x := Callback{
-		Extensions: make(map[string]interface{}),
+		Extensions: make(map[string]any),
 		m:          make(map[string]*PathItem, len(m)),
 	}
 
@@ -302,33 +324,44 @@ func (paths *Paths) Map() (m map[string]*PathItem) {
 var _ jsonpointer.JSONPointable = (*Paths)(nil)
 
 // JSONLookup implements https://github.com/go-openapi/jsonpointer#JSONPointable
-func (paths Paths) JSONLookup(token string) (interface{}, error) {
+func (paths Paths) JSONLookup(token string) (any, error) {
 	if v := paths.Value(token); v == nil {
 		vv, _, err := jsonpointer.GetForToken(paths.Extensions, token)
 		return vv, err
 	} else if ref := v.Ref; ref != "" {
 		return &Ref{Ref: ref}, nil
 	} else {
-		var vv *PathItem = v
-		return vv, nil
+		return v, nil
 	}
 }
 
-// MarshalJSON returns the JSON encoding of Paths.
-func (paths *Paths) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{}, paths.Len()+len(paths.Extensions))
+// MarshalYAML returns the YAML encoding of Paths.
+func (paths *Paths) MarshalYAML() (any, error) {
+	if paths == nil {
+		return nil, nil
+	}
+	m := make(map[string]any, paths.Len()+len(paths.Extensions))
 	for k, v := range paths.Extensions {
 		m[k] = v
 	}
 	for k, v := range paths.Map() {
 		m[k] = v
 	}
-	return json.Marshal(m)
+	return m, nil
+}
+
+// MarshalJSON returns the JSON encoding of Paths.
+func (paths *Paths) MarshalJSON() ([]byte, error) {
+	pathsYaml, err := paths.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(pathsYaml)
 }
 
 // UnmarshalJSON sets Paths to a copy of data.
 func (paths *Paths) UnmarshalJSON(data []byte) (err error) {
-	var m map[string]interface{}
+	var m map[string]any
 	if err = json.Unmarshal(data, &m); err != nil {
 		return
 	}
@@ -337,10 +370,10 @@ func (paths *Paths) UnmarshalJSON(data []byte) (err error) {
 	for k := range m {
 		ks = append(ks, k)
 	}
-	sort.Strings(ks)
+	slices.Sort(ks)
 
 	x := Paths{
-		Extensions: make(map[string]interface{}),
+		Extensions: make(map[string]any),
 		m:          make(map[string]*PathItem, len(m)),
 	}
 

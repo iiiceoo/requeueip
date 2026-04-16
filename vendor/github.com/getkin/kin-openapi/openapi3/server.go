@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/url"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -51,11 +50,12 @@ func (servers Servers) MatchURL(parsedURL *url.URL) (*Server, []string, string) 
 // Server is specified by OpenAPI/Swagger standard version 3.
 // See https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md#server-object
 type Server struct {
-	Extensions map[string]interface{} `json:"-" yaml:"-"`
+	Extensions map[string]any `json:"-" yaml:"-"`
+	Origin     *Origin        `json:"__origin__,omitempty" yaml:"__origin__,omitempty"`
 
-	URL         string                     `json:"url" yaml:"url"` // Required
-	Description string                     `json:"description,omitempty" yaml:"description,omitempty"`
-	Variables   map[string]*ServerVariable `json:"variables,omitempty" yaml:"variables,omitempty"`
+	URL         string          `json:"url" yaml:"url"` // Required
+	Description string          `json:"description,omitempty" yaml:"description,omitempty"`
+	Variables   ServerVariables `json:"variables,omitempty" yaml:"variables,omitempty"`
 }
 
 // BasePath returns the base path extracted from the default values of variables, if any.
@@ -84,7 +84,16 @@ func (server *Server) BasePath() (string, error) {
 
 // MarshalJSON returns the JSON encoding of Server.
 func (server Server) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{}, 3+len(server.Extensions))
+	x, err := server.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(x)
+}
+
+// MarshalYAML returns the YAML encoding of Server.
+func (server Server) MarshalYAML() (any, error) {
+	m := make(map[string]any, 3+len(server.Extensions))
 	for k, v := range server.Extensions {
 		m[k] = v
 	}
@@ -95,7 +104,7 @@ func (server Server) MarshalJSON() ([]byte, error) {
 	if x := server.Variables; len(x) != 0 {
 		m["variables"] = x
 	}
-	return json.Marshal(m)
+	return m, nil
 }
 
 // UnmarshalJSON sets Server to a copy of data.
@@ -163,7 +172,7 @@ func (server Server) MatchRawURL(input string) ([]string, string, bool) {
 			} else if ns < 0 {
 				i = np
 			} else {
-				i = int(math.Min(float64(np), float64(ns)))
+				i = min(np, ns)
 			}
 			if i < 0 {
 				i = len(input)
@@ -208,7 +217,7 @@ func (server *Server) Validate(ctx context.Context, opts ...ValidationOption) (e
 	for name := range server.Variables {
 		variables = append(variables, name)
 	}
-	sort.Strings(variables)
+	slices.Sort(variables)
 	for _, name := range variables {
 		v := server.Variables[name]
 		if !strings.Contains(server.URL, "{"+name+"}") {
@@ -224,8 +233,18 @@ func (server *Server) Validate(ctx context.Context, opts ...ValidationOption) (e
 
 // ServerVariable is specified by OpenAPI/Swagger standard version 3.
 // See https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md#server-variable-object
+// ServerVariables is a map of ServerVariable objects keyed by variable name.
+type ServerVariables map[string]*ServerVariable
+
+// UnmarshalJSON sets ServerVariables to a copy of data.
+func (serverVariables *ServerVariables) UnmarshalJSON(data []byte) (err error) {
+	*serverVariables, err = unmarshalStringMapP[ServerVariable](data)
+	return
+}
+
 type ServerVariable struct {
-	Extensions map[string]interface{} `json:"-" yaml:"-"`
+	Extensions map[string]any `json:"-" yaml:"-"`
+	Origin     *Origin        `json:"__origin__,omitempty" yaml:"__origin__,omitempty"`
 
 	Enum        []string `json:"enum,omitempty" yaml:"enum,omitempty"`
 	Default     string   `json:"default,omitempty" yaml:"default,omitempty"`
@@ -234,7 +253,16 @@ type ServerVariable struct {
 
 // MarshalJSON returns the JSON encoding of ServerVariable.
 func (serverVariable ServerVariable) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{}, 4+len(serverVariable.Extensions))
+	x, err := serverVariable.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(x)
+}
+
+// MarshalYAML returns the YAML encoding of ServerVariable.
+func (serverVariable ServerVariable) MarshalYAML() (any, error) {
+	m := make(map[string]any, 4+len(serverVariable.Extensions))
 	for k, v := range serverVariable.Extensions {
 		m[k] = v
 	}
@@ -247,7 +275,7 @@ func (serverVariable ServerVariable) MarshalJSON() ([]byte, error) {
 	if x := serverVariable.Description; x != "" {
 		m["description"] = x
 	}
-	return json.Marshal(m)
+	return m, nil
 }
 
 // UnmarshalJSON sets ServerVariable to a copy of data.

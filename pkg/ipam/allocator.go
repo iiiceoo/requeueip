@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/big"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -35,7 +36,6 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 

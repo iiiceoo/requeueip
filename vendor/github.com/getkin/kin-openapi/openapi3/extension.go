@@ -3,11 +3,11 @@ package openapi3
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 )
 
-func validateExtensions(ctx context.Context, extensions map[string]interface{}) error { // FIXME: newtype + Validate(...)
+func validateExtensions(ctx context.Context, extensions map[string]any) error { // FIXME: newtype + Validate(...)
 	allowed := getValidationOptions(ctx).extraSiblingFieldsAllowed
 
 	var unknowns []string
@@ -24,7 +24,7 @@ func validateExtensions(ctx context.Context, extensions map[string]interface{}) 
 	}
 
 	if len(unknowns) != 0 {
-		sort.Strings(unknowns)
+		slices.Sort(unknowns)
 		return fmt.Errorf("extra sibling fields: %+v", unknowns)
 	}
 

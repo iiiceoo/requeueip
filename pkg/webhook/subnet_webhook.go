@@ -24,7 +24,6 @@ import (
 
 	"github.com/iiiceoo/iprange"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -32,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
@@ -53,17 +51,15 @@ type subnetWebhooker struct {
 }
 
 func (h *subnetWebhooker) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&requeueipv1.Subnet{}).
+	return ctrl.NewWebhookManagedBy(mgr, &requeueipv1.Subnet{}).
 		WithDefaulter(h).
 		WithValidator(h).
 		Complete()
 }
 
-var _ webhook.CustomDefaulter = (*subnetWebhooker)(nil)
+var _ admission.Defaulter[*requeueipv1.Subnet] = (*subnetWebhooker)(nil)
 
-func (h *subnetWebhooker) Default(ctx context.Context, obj runtime.Object) error {
-	rn := obj.(*requeueipv1.Subnet)
+func (h *subnetWebhooker) Default(ctx context.Context, subnet *requeueipv1.Subnet) error {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return err
@@ -75,13 +71,12 @@ func (h *subnetWebhooker) Default(ctx context.Context, obj runtime.Object) error
 	)
 	logger.V(5).Info("Request object", "old", req.OldObject, "new", req.Object)
 
-	return h.mutate(log.IntoContext(ctx, logger), rn)
+	return h.mutate(log.IntoContext(ctx, logger), subnet)
 }
 
-var _ webhook.CustomValidator = (*subnetWebhooker)(nil)
+var _ admission.Validator[*requeueipv1.Subnet] = (*subnetWebhooker)(nil)
 
-func (h *subnetWebhooker) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	rn := obj.(*requeueipv1.Subnet)
+func (h *subnetWebhooker) ValidateCreate(ctx context.Context, subnet *requeueipv1.Subnet) (admission.Warnings, error) {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -93,10 +88,10 @@ func (h *subnetWebhooker) ValidateCreate(ctx context.Context, obj runtime.Object
 	)
 	logger.V(5).Info("Request object", "old", req.OldObject, "new", req.Object)
 
-	if errs := h.validateCreate(log.IntoContext(ctx, logger), rn); len(errs) != 0 {
+	if errs := h.validateCreate(log.IntoContext(ctx, logger), subnet); len(errs) != 0 {
 		return nil, apierrors.NewInvalid(
 			schema.GroupKind{Group: req.Kind.Group, Kind: req.Kind.Kind},
-			rn.Name,
+			subnet.Name,
 			errs,
 		)
 	}
@@ -104,9 +99,7 @@ func (h *subnetWebhooker) ValidateCreate(ctx context.Context, obj runtime.Object
 	return nil, nil
 }
 
-func (h *subnetWebhooker) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	old := oldObj.(*requeueipv1.Subnet)
-	rn := newObj.(*requeueipv1.Subnet)
+func (h *subnetWebhooker) ValidateUpdate(ctx context.Context, old, subnet *requeueipv1.Subnet) (admission.Warnings, error) {
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -118,22 +111,22 @@ func (h *subnetWebhooker) ValidateUpdate(ctx context.Context, oldObj, newObj run
 	)
 	logger.V(5).Info("Request object", "old", req.OldObject, "new", req.Object)
 
-	if !rn.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(rn, consts.RFinalizer) {
+	if !subnet.DeletionTimestamp.IsZero() {
+		if !controllerutil.ContainsFinalizer(subnet, consts.RFinalizer) {
 			return nil, nil
 		}
 
 		return nil, apierrors.NewForbidden(
 			schema.GroupResource{Group: req.Resource.Group, Resource: req.Resource.Resource},
-			rn.Name,
+			subnet.Name,
 			errors.New("could not update a terminating Subnet"),
 		)
 	}
 
-	if errs := h.validateUpdate(log.IntoContext(ctx, logger), old, rn); len(errs) != 0 {
+	if errs := h.validateUpdate(log.IntoContext(ctx, logger), old, subnet); len(errs) != 0 {
 		return nil, apierrors.NewInvalid(
 			schema.GroupKind{Group: req.Kind.Group, Kind: req.Kind.Kind},
-			rn.Name,
+			subnet.Name,
 			errs,
 		)
 	}
@@ -141,7 +134,7 @@ func (h *subnetWebhooker) ValidateUpdate(ctx context.Context, oldObj, newObj run
 	return nil, nil
 }
 
-func (h *subnetWebhooker) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (h *subnetWebhooker) ValidateDelete(ctx context.Context, subnet *requeueipv1.Subnet) (admission.Warnings, error) {
 	return nil, nil
 }
 

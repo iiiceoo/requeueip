@@ -42,8 +42,6 @@ install.golines:
 .PHONY: install.golangci-lint
 install.golangci-lint:
 	@$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	@golangci-lint completion bash > $(HOME)/.golangci-lint.bash
-	@if ! grep -q .golangci-lint.bash $(HOME)/.bashrc; then echo "source \$$HOME/.golangci-lint.bash" >> $(HOME)/.bashrc; fi
 
 .PHONY: install.ginkgo
 install.ginkgo:
@@ -55,11 +53,11 @@ install.helm-docs:
 
 .PHONY: install.kind
 install.kind:
-	@$(GO) install sigs.k8s.io/kind@v0.22.0
+	@$(GO) install sigs.k8s.io/kind@latest
 
 .PHONY: install.controller-gen
 install.controller-gen:
-	@$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
+	@$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
 
 .PHONY: install.oapi-codegen
 install.oapi-codegen:

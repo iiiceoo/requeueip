@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 
 	"github.com/go-openapi/jsonpointer"
 )
@@ -12,7 +13,7 @@ import (
 // T is the root of an OpenAPI v3 document
 // See https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md#openapi-object
 type T struct {
-	Extensions map[string]interface{} `json:"-" yaml:"-"`
+	Extensions map[string]any `json:"-" yaml:"-"`
 
 	OpenAPI      string               `json:"openapi" yaml:"openapi"` // Required
 	Components   *Components          `json:"components,omitempty" yaml:"components,omitempty"`
@@ -24,12 +25,19 @@ type T struct {
 	ExternalDocs *ExternalDocs        `json:"externalDocs,omitempty" yaml:"externalDocs,omitempty"`
 
 	visited visitedComponent
+	url     *url.URL
+
+	// Document-scoped format validators
+	// These validators are automatically used by all schemas in this document
+	stringFormats  map[string]StringFormatValidator
+	numberFormats  map[string]NumberFormatValidator
+	integerFormats map[string]IntegerFormatValidator
 }
 
 var _ jsonpointer.JSONPointable = (*T)(nil)
 
 // JSONLookup implements https://pkg.go.dev/github.com/go-openapi/jsonpointer#JSONPointable
-func (doc *T) JSONLookup(token string) (interface{}, error) {
+func (doc *T) JSONLookup(token string) (any, error) {
 	switch token {
 	case "openapi":
 		return doc.OpenAPI, nil
@@ -55,7 +63,19 @@ func (doc *T) JSONLookup(token string) (interface{}, error) {
 
 // MarshalJSON returns the JSON encoding of T.
 func (doc *T) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{}, 4+len(doc.Extensions))
+	x, err := doc.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(x)
+}
+
+// MarshalYAML returns the YAML encoding of T.
+func (doc *T) MarshalYAML() (any, error) {
+	if doc == nil {
+		return nil, nil
+	}
+	m := make(map[string]any, 4+len(doc.Extensions))
 	for k, v := range doc.Extensions {
 		m[k] = v
 	}
@@ -77,7 +97,7 @@ func (doc *T) MarshalJSON() ([]byte, error) {
 	if x := doc.ExternalDocs; x != nil {
 		m["externalDocs"] = x
 	}
-	return json.Marshal(m)
+	return m, nil
 }
 
 // UnmarshalJSON sets T to a copy of data.
@@ -121,6 +141,64 @@ func (doc *T) AddServer(server *Server) {
 
 func (doc *T) AddServers(servers ...*Server) {
 	doc.Servers = append(doc.Servers, servers...)
+}
+
+// SetStringFormatValidators sets document-scoped string format validators.
+// These validators are automatically used by all schemas in this document.
+func (doc *T) SetStringFormatValidators(validators map[string]StringFormatValidator) {
+	doc.stringFormats = validators
+}
+
+// SetStringFormatValidator sets a single document-scoped string format validator.
+func (doc *T) SetStringFormatValidator(name string, validator StringFormatValidator) {
+	if doc.stringFormats == nil {
+		doc.stringFormats = make(map[string]StringFormatValidator)
+	}
+	doc.stringFormats[name] = validator
+}
+
+// SetNumberFormatValidators sets document-scoped number format validators.
+// These validators are automatically used by all schemas in this document.
+func (doc *T) SetNumberFormatValidators(validators map[string]NumberFormatValidator) {
+	doc.numberFormats = validators
+}
+
+// SetNumberFormatValidator sets a single document-scoped number format validator.
+func (doc *T) SetNumberFormatValidator(name string, validator NumberFormatValidator) {
+	if doc.numberFormats == nil {
+		doc.numberFormats = make(map[string]NumberFormatValidator)
+	}
+	doc.numberFormats[name] = validator
+}
+
+// SetIntegerFormatValidators sets document-scoped integer format validators.
+// These validators are automatically used by all schemas in this document.
+func (doc *T) SetIntegerFormatValidators(validators map[string]IntegerFormatValidator) {
+	doc.integerFormats = validators
+}
+
+// SetIntegerFormatValidator sets a single document-scoped integer format validator.
+func (doc *T) SetIntegerFormatValidator(name string, validator IntegerFormatValidator) {
+	if doc.integerFormats == nil {
+		doc.integerFormats = make(map[string]IntegerFormatValidator)
+	}
+	doc.integerFormats[name] = validator
+}
+
+// GetSchemaValidationOptions returns SchemaValidationOptions that include
+// this document's format validators. Use this when validating schemas from this document.
+func (doc *T) GetSchemaValidationOptions() []SchemaValidationOption {
+	var opts []SchemaValidationOption
+	if doc.stringFormats != nil {
+		opts = append(opts, WithStringFormatValidators(doc.stringFormats))
+	}
+	if doc.numberFormats != nil {
+		opts = append(opts, WithNumberFormatValidators(doc.numberFormats))
+	}
+	if doc.integerFormats != nil {
+		opts = append(opts, WithIntegerFormatValidators(doc.integerFormats))
+	}
+	return opts
 }
 
 // Validate returns an error if T does not comply with the OpenAPI spec.
@@ -188,4 +266,12 @@ func (doc *T) Validate(ctx context.Context, opts ...ValidationOption) error {
 	}
 
 	return validateExtensions(ctx, doc.Extensions)
+}
+
+// ValidateSchemaJSON validates data against a schema using this document's format validators.
+// This is a convenience method that automatically applies the document's format validators.
+func (doc *T) ValidateSchemaJSON(schema *Schema, value any, opts ...SchemaValidationOption) error {
+	// Combine document's validators with any additional options
+	allOpts := append(doc.GetSchemaValidationOptions(), opts...)
+	return schema.VisitJSON(value, allOpts...)
 }
