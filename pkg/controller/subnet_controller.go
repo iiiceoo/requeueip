@@ -134,8 +134,11 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	old := rn.DeepCopy()
 	rn.Status = *status
+	if err := r.client.Status().Patch(ctx, &rn, client.MergeFrom(old)); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	return ctrl.Result{}, r.client.Status().Patch(ctx, &rn, client.MergeFrom(old))
+	return ctrl.Result{}, nil
 }
 
 // cleanUpSubnet removes Subnet's finalizer when it is not referenced by any

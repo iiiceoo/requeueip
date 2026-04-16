@@ -78,7 +78,7 @@ func LoadIPAMConfig(bytes []byte, envArgs string) (*IPAMConfig, string, error) {
 		n.IPAM.UnixSocketPath = consts.CNIUnixSocketPath
 	}
 
-	// Copy net name into IPAM so not to drag Net struct around。
+	// Copy net name into IPAM so not to drag Net struct around.
 	n.IPAM.Name = n.Name
 
 	return n.IPAM, n.CNIVersion, nil

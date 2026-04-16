@@ -133,8 +133,11 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	old := rp.DeepCopy()
 	rp.Status = *status
+	if err := r.client.Status().Patch(ctx, &rp, client.MergeFrom(old)); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	return ctrl.Result{}, r.client.Status().Patch(ctx, &rp, client.MergeFrom(old))
+	return ctrl.Result{}, nil
 }
 
 // cleanUpIPool removes IPPool's finalizer when it is not referenced by any IP

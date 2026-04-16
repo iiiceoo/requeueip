@@ -131,8 +131,11 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	old := alloc.claim.DeepCopy()
 	alloc.claim.Status = *status
+	if err := r.client.Status().Patch(ctx, alloc.claim, client.MergeFrom(old)); err != nil {
+		return ctrl.Result{}, err
+	}
 
-	return ctrl.Result{}, r.client.Status().Patch(ctx, alloc.claim, client.MergeFrom(old))
+	return ctrl.Result{}, nil
 }
 
 // getOwnerMetadata gets the metadata of owner resource. It is commonly used to
