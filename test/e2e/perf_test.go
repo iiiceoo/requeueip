@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/olekukonko/tablewriter"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -173,13 +172,10 @@ var _ = Describe("Performance", Label("perf"), func() {
 				return
 			}
 
-			table := tablewriter.NewWriter(GinkgoWriter)
-			table.SetHeader([]string{"Step", "Duration"})
+			GinkgoWriter.Println("\nPerf Report:")
 			for _, e := range report.ReportEntries {
-				table.Append([]string{e.Name, e.StringRepresentation()})
+				GinkgoWriter.Printf("  %s: %s\n", e.Name, e.StringRepresentation())
 			}
-			GinkgoWriter.Println("Perf Report:")
-			table.Render()
 		})
 
 		It("with a large number of replicas", func(ctx SpecContext) {
