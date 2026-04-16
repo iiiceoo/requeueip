@@ -2,7 +2,7 @@ package: v1
 generate:
   models: true
   client: true
-  gorilla-server: true
+  std-http-server: true
   strict-server: true
   embedded-spec: true
 output-options:

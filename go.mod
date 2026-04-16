@@ -6,7 +6,6 @@ require (
 	github.com/containernetworking/cni v1.2.0
 	github.com/getkin/kin-openapi v0.124.0
 	github.com/go-logr/zapr v1.3.0
-	github.com/gorilla/mux v1.8.1
 	github.com/iiiceoo/iprange v0.2.3
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/olekukonko/tablewriter v0.0.5
