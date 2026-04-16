@@ -65,16 +65,16 @@ spec:
             description: IPPoolSpec defines the desired state of IPPool.
             properties:
               ranges:
-                description: The IP ranges of IPPool, which represents a set of consecutive
-                  IP addresses.
+                description: Ranges is the set of IP ranges allocated to this IPPool.
                 items:
                   type: string
                 type: array
               subnet:
-                description: The subnet to which IPPool belongs.
+                description: Subnet specifies the Subnet to which this IPPool belongs.
                 type: string
               version:
-                description: The IP version of IPPool.
+                description: Version specifies the IP version (IPv4 or IPv6) of the
+                  IPPool.
                 enum:
                 - IPv4
                 - IPv6
@@ -88,16 +88,18 @@ spec:
             description: IPPoolStatus defines the observed state of IPPool.
             properties:
               count:
-                description: The count status of IPPool.
+                description: Count is the count status of the IPPool.
                 properties:
                   free:
-                    description: The number of available IP addresses.
+                    description: Free is the number of available IP addresses in the
+                      IPPool.
                     type: string
                   total:
-                    description: The number of total IP addresses.
+                    description: Total is the total number of IP addresses in the
+                      IPPool.
                     type: string
                   used:
-                    description: The number of used IP addresses.
+                    description: Used is the number of used IP addresses in the IPPool.
                     type: string
                 required:
                 - free
@@ -105,7 +107,7 @@ spec:
                 - used
                 type: object
               free:
-                description: The current available IP ranges of IPPool.
+                description: Free is the current available IP ranges in the IPPool.
                 items:
                   type: string
                 type: array

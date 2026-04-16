@@ -66,19 +66,21 @@ spec:
             properties:
               replicas:
                 description: |-
-                  The total number of IP addresses of the IPPool to be synced. It should
-                  always be consistent with the replica of the owner workload.
+                  Replicas is the expected number of IP addresses to allocate from the
+                  IPPool, which must match the replica count of the owner workload.
                 format: int32
                 minimum: 0
                 type: integer
               subnets:
-                description: List of candidate Subnet names for IP address assignments.
+                description: Subnets is a list of candidate Subnet names for IP address
+                  assignments.
                 items:
                   type: string
                 minItems: 1
                 type: array
               version:
-                description: The IP version of the IPPool to be synced.
+                description: Version specifies the IP version (IPv4 or IPv6) for the
+                  IPPool.
                 enum:
                 - IPv4
                 - IPv6
@@ -92,11 +94,13 @@ spec:
             description: IPPoolClaimStatus defines the observed state of IPPoolClaim.
             properties:
               poolSize:
-                description: The current size of the IPPool created based on the claim.
+                description: PoolSize is the current size of the IPPool created based
+                  on the claim.
                 format: int32
                 type: integer
               subnet:
-                description: The Subnet selected from the candidate Subnets.
+                description: Subnet is the selected Subnet name from the candidate
+                  list.
                 type: string
             type: object
         type: object

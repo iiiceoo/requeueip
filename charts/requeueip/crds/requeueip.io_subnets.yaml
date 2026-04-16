@@ -70,20 +70,21 @@ spec:
             properties:
               blockSize:
                 description: |-
-                  The minimum unit of IP address assignments from Subnet. Defaults to 30
-                  for IPv4 and 126 for IPv6.
+                  BlockSize specifies the minimum unit of IP address assignments from the
+                  Subnet. Defaults to 30 for IPv4 and 126 for IPv6.
                 format: int32
                 type: integer
               cidr:
-                description: The CIDR of Subnet.
+                description: CIDR specifies the CIDR notation of the Subnet.
                 type: string
               excluded:
-                description: The IP ranges excluded from Subnet.
+                description: Excluded is a list of IP ranges to exclude from the Subnet.
                 items:
                   type: string
                 type: array
               version:
-                description: The IP version of Subnet.
+                description: Version specifies the IP version (IPv4 or IPv6) of the
+                  Subnet.
                 enum:
                 - IPv4
                 - IPv6
@@ -95,16 +96,17 @@ spec:
             description: SubnetStatus defines the observed state of Subnet.
             properties:
               blockCount:
-                description: The IP block count status of Subnet.
+                description: BlockCount is the IP block count status of the Subnet.
                 properties:
                   free:
-                    description: The number of available IP blocks.
+                    description: Free is the number of available IP blocks in the
+                      Subnet.
                     type: string
                   total:
-                    description: The number of total IP blocks.
+                    description: Total is the total number of IP blocks in the Subnet.
                     type: string
                   used:
-                    description: The number of used IP blocks.
+                    description: Used is the number of used IP blocks in the Subnet.
                     type: string
                 required:
                 - free
@@ -112,7 +114,7 @@ spec:
                 - used
                 type: object
               free:
-                description: The current available IP ranges of Subnet.
+                description: Free is the current available IP ranges in the Subnet.
                 items:
                   type: string
                 type: array

@@ -63,7 +63,7 @@ install.controller-gen:
 
 .PHONY: install.oapi-codegen
 install.oapi-codegen:
-	@$(GO) install github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen@latest
+	@$(GO) install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 
 .PHONY: install.markdownlint-cli2
 install.markdownlint-cli2:
