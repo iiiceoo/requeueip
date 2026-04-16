@@ -25,17 +25,17 @@ type IPPoolSpec struct {
 	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Required
 
-	// The IP version of IPPool.
+	// Version specifies the IP version (IPv4 or IPv6) of the IPPool.
 	Version string `json:"version"`
 
 	// +kubebuilder:validation:Required
 
-	// The subnet to which IPPool belongs.
+	// Subnet specifies the Subnet to which this IPPool belongs.
 	Subnet string `json:"subnet"`
 
 	// +kubebuilder:validation:Required
 
-	// The IP ranges of IPPool, which represents a set of consecutive IP addresses.
+	// Ranges is the set of IP ranges allocated to this IPPool.
 	Ranges []string `json:"ranges"`
 }
 
@@ -43,12 +43,12 @@ type IPPoolSpec struct {
 type IPPoolStatus struct {
 	// +kubebuilder:validation:Required
 
-	// The current available IP ranges of IPPool.
+	// Free is the current available IP ranges in the IPPool.
 	Free []string `json:"free"`
 
 	// +kubebuilder:validation:Optional
 
-	// The count status of IPPool.
+	// Count is the count status of the IPPool.
 	Count *Count `json:"count,omitempty"`
 }
 
@@ -56,17 +56,17 @@ type IPPoolStatus struct {
 type Count struct {
 	// +kubebuilder:validation:Required
 
-	// The number of total IP addresses.
+	// Total is the total number of IP addresses in the IPPool.
 	Total string `json:"total"`
 
 	// +kubebuilder:validation:Required
 
-	// The number of used IP addresses.
+	// Used is the number of used IP addresses in the IPPool.
 	Used string `json:"used"`
 
 	// +kubebuilder:validation:Required
 
-	// The number of available IP addresses.
+	// Free is the number of available IP addresses in the IPPool.
 	Free string `json:"free"`
 }
 

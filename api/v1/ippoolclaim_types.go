@@ -25,20 +25,20 @@ type IPPoolClaimSpec struct {
 	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Required
 
-	// The IP version of the IPPool to be synced.
+	// Version specifies the IP version (IPv4 or IPv6) for the IPPool.
 	Version string `json:"version"`
 
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Required
 
-	// List of candidate Subnet names for IP address assignments.
+	// Subnets is a list of candidate Subnet names for IP address assignments.
 	Subnets []string `json:"subnets"`
 
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Required
 
-	// The total number of IP addresses of the IPPool to be synced. It should
-	// always be consistent with the replica of the owner workload.
+	// Replicas is the expected number of IP addresses to allocate from the IPPool,
+	// which must match the replica count of the owner workload.
 	Replicas int32 `json:"replicas"`
 }
 
@@ -46,12 +46,12 @@ type IPPoolClaimSpec struct {
 type IPPoolClaimStatus struct {
 	// +kubebuilder:validation:Optional
 
-	// The Subnet selected from the candidate Subnets.
+	// Subnet is the selected Subnet name from the candidate list.
 	Subnet *string `json:"subnet,omitempty"`
 
 	// +kubebuilder:validation:Optional
 
-	// The current size of the IPPool created based on the claim.
+	// PoolSize is the current size of the IPPool created based on the claim.
 	PoolSize *int32 `json:"poolSize,omitempty"`
 }
 

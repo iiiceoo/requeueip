@@ -25,23 +25,23 @@ type SubnetSpec struct {
 	// +kubebuilder:validation:Enum=IPv4;IPv6
 	// +kubebuilder:validation:Optional
 
-	// The IP version of Subnet.
+	// Version specifies the IP version (IPv4 or IPv6) of the Subnet.
 	Version *string `json:"version,omitempty"`
 
 	// +kubebuilder:validation:Required
 
-	// The CIDR of Subnet.
+	// CIDR specifies the CIDR notation of the Subnet.
 	CIDR string `json:"cidr"`
 
 	// +kubebuilder:validation:Optional
 
-	// The IP ranges excluded from Subnet.
+	// Excluded is a list of IP ranges to exclude from the Subnet.
 	Excluded []string `json:"excluded,omitempty"`
 
 	// +kubebuilder:validation:Optional
 
-	// The minimum unit of IP address assignments from Subnet. Defaults to 30
-	// for IPv4 and 126 for IPv6.
+	// BlockSize specifies the minimum unit of IP address assignments from the Subnet.
+	// Defaults to 30 for IPv4 and 126 for IPv6.
 	BlockSize *int32 `json:"blockSize,omitempty"`
 }
 
@@ -49,12 +49,12 @@ type SubnetSpec struct {
 type SubnetStatus struct {
 	// +kubebuilder:validation:Required
 
-	// The current available IP ranges of Subnet.
+	// Free is the current available IP ranges in the Subnet.
 	Free []string `json:"free"`
 
 	// +kubebuilder:validation:Optional
 
-	// The IP block count status of Subnet.
+	// BlockCount is the IP block count status of the Subnet.
 	BlockCount *BlockCount `json:"blockCount,omitempty"`
 }
 
@@ -62,17 +62,17 @@ type SubnetStatus struct {
 type BlockCount struct {
 	// +kubebuilder:validation:Required
 
-	// The number of total IP blocks.
+	// Total is the total number of IP blocks in the Subnet.
 	Total string `json:"total"`
 
 	// +kubebuilder:validation:Required
 
-	// The number of used IP blocks.
+	// Used is the number of used IP blocks in the Subnet.
 	Used string `json:"used"`
 
 	// +kubebuilder:validation:Required
 
-	// The number of available IP blocks.
+	// Free is the number of available IP blocks in the Subnet.
 	Free string `json:"free"`
 }
 
