@@ -23,6 +23,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	srcPath = "/usr/bin/requeueip"
+	binPath = "/host/opt/cni/bin/requeueip"
+)
+
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install RequeueIP CNI binary.",
@@ -34,11 +39,6 @@ var installCmd = &cobra.Command{
 func InstallCmd() *cobra.Command {
 	return installCmd
 }
-
-const (
-	srcPath = "/usr/bin/requeueip"
-	binPath = "/host/opt/cni/bin/requeueip"
-)
 
 // copyFile copies file src to file dst.
 func copyFile(src, dst string) error {

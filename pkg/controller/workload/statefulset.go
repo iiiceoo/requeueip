@@ -71,9 +71,9 @@ func (r *statefulSetReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	if len(claims) == 0 {
-		return ctrl.Result{}, nil
+	if err := r.rpcClient.ensureClaims(ctx, claims, &sts); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, r.rpcClient.ensureClaims(ctx, claims, &sts)
+	return ctrl.Result{}, nil
 }

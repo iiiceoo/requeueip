@@ -55,19 +55,27 @@ func (c *rpcClient) parseClaims(
 	annotations map[string]string,
 	replicas int32,
 ) ([]requeueipv1.IPPoolClaimSpec, error) {
-	if annotations == nil {
-		return nil, nil
+	v4Str, v6Str := "", ""
+	if len(annotations) != 0 {
+		v4Str = annotations[consts.AnnoIPv4Subnets]
+		v6Str = annotations[consts.AnnoIPv6Subnets]
 	}
 
-	v4Str := annotations[consts.AnnoIPv4Subnets]
-	v6Str := annotations[consts.AnnoIPv6Subnets]
 	if v4Str == "" && v6Str == "" {
 		var ns corev1.Namespace
 		if err := c.client.Get(ctx, types.NamespacedName{Name: namespace}, &ns); err != nil {
 			return nil, err
 		}
+		if len(ns.Annotations) == 0 {
+			return nil, nil
+		}
+
 		v4Str = ns.Annotations[consts.AnnoIPv4Subnets]
 		v6Str = ns.Annotations[consts.AnnoIPv6Subnets]
+	}
+
+	if v4Str == "" && v6Str == "" {
+		return nil, nil
 	}
 
 	v4Subnets := parseArray(v4Str)
@@ -95,17 +103,20 @@ func (c *rpcClient) parseClaims(
 // ensureClaims updates IPPoolClaims with specified specs, or creates them if
 // they do not exist.
 func (c *rpcClient) ensureClaims(ctx context.Context, specs []requeueipv1.IPPoolClaimSpec, object client.Object) error {
+	n := len(specs)
+	if n == 0 {
+		return nil
+	}
+
 	var wg sync.WaitGroup
-	errCh := make(chan error, len(specs))
-	for i := 0; i < len(specs); i++ {
+	errCh := make(chan error, n)
+	for i := 0; i < n; i++ {
 		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if err := c.ensureClaim(ctx, &specs[i], object); err != nil {
 				errCh <- err
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -147,18 +158,20 @@ func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolCla
 			},
 			Spec: *spec,
 		}
+
 		controllerutil.AddFinalizer(rpc, consts.RFinalizer)
 		if err := controllerutil.SetControllerReference(object, rpc, c.client.Scheme()); err != nil {
 			return err
 		}
+
 		return client.IgnoreAlreadyExists(c.client.Create(ctx, rpc))
 	}
 
 	if reflect.DeepEqual(&rpc.Spec, spec) {
 		return nil
 	}
-	rpc.Spec = *spec
 
+	rpc.Spec = *spec
 	return c.client.Update(ctx, &rpc)
 }
 

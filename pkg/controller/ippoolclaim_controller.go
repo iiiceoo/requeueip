@@ -227,6 +227,7 @@ func (r *claimReconciler) getOrMarkIPPool(
 			Ranges:  []string{},
 		},
 	}
+
 	controllerutil.AddFinalizer(newRP, consts.RFinalizer)
 	if err := controllerutil.SetControllerReference(claim, newRP, r.client.Scheme()); err != nil {
 		return nil, nil, err
@@ -544,16 +545,14 @@ func (r *claimReconciler) claimIPBlocks(
 		index := new(big.Int).Mod(big.NewInt(int64(hash)), alloc.freeBlockCount)
 		index.Add(index, consts.BigInt[1])
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			block, err := r.claimIPBlock(ctx, alloc, index)
 			if err != nil {
 				errCh <- err
 				return
 			}
 			blockCh <- block
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -631,9 +630,7 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 	errCh := make(chan error, len(blocks))
 	for i := 0; i < len(blocks); i++ {
 		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			br, err := net.NamesToCIDRIPRanges(pool.Spec.Version, blocks[i].Name)
 			if err != nil {
 				errCh <- err
@@ -642,7 +639,7 @@ func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1
 			if br.Intersect(ranges).Size().Sign() == 0 {
 				errCh <- r.client.Delete(ctx, &blocks[i])
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

@@ -19,5 +19,5 @@ package main
 import "github.com/iiiceoo/requeueip/cmd/requeueipd/app"
 
 func main() {
-	app.Excute()
+	app.Execute()
 }

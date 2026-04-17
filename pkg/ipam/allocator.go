@@ -280,28 +280,24 @@ func (a *allocator) assign(
 	errCh := make(chan error, 2)
 	ipsCh := make(chan []oapiv1.IPConfig, 2)
 	if assignment.v4ToAssign > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			ips, err := a.assignIPs(ctx, net.IPv4, assignment.v4ToAssign, pod, workload)
 			if err != nil {
 				errCh <- err
 				return
 			}
 			ipsCh <- ips
-		}()
+		})
 	}
 	if assignment.v6ToAssign > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			ips, err := a.assignIPs(ctx, net.IPv6, assignment.v6ToAssign, pod, workload)
 			if err != nil {
 				errCh <- err
 				return
 			}
 			ipsCh <- ips
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -342,16 +338,14 @@ func (a *allocator) assignIPs(
 	ipCh := make(chan *oapiv1.IPConfig, count)
 	for i := 0; i < count; i++ {
 		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			ip, err := a.assignIP(ctx, pool, i, pod, workload)
 			if err != nil {
 				errCh <- err
 				return
 			}
 			ipCh <- ip
-		}()
+		})
 	}
 
 	wg.Wait()

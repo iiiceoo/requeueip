@@ -33,7 +33,7 @@ var rootCmd = &cobra.Command{
 	Use: bin,
 }
 
-func Excute() {
+func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

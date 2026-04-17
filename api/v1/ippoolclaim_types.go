@@ -37,8 +37,8 @@ type IPPoolClaimSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Required
 
-	// Replicas is the expected number of IP addresses to allocate from the
-	// IPPool, which must match the replica count of the owner workload.
+	// Replicas specifies the number of IP addresses to reserve from the selected
+	// Subnet. An IPPool of this size will be created based on this claim.
 	Replicas int32 `json:"replicas"`
 }
 

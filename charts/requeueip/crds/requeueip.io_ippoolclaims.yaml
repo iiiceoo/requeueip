@@ -66,8 +66,8 @@ spec:
             properties:
               replicas:
                 description: |-
-                  Replicas is the expected number of IP addresses to allocate from the
-                  IPPool, which must match the replica count of the owner workload.
+                  Replicas specifies the number of IP addresses to reserve from the selected
+                  Subnet. An IPPool of this size will be created based on this claim.
                 format: int32
                 minimum: 0
                 type: integer
