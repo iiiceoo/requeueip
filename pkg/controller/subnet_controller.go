@@ -26,9 +26,12 @@ import (
 	"github.com/iiiceoo/iprange"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	requeueipv1 "github.com/iiiceoo/requeueip/api/v1"
@@ -50,7 +53,15 @@ type subnetReconciler struct {
 func (r *subnetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&requeueipv1.Subnet{}).
-		Watches(&requeueipv1.IPBlock{}, handler.EnqueueRequestsFromMapFunc(mapFuncForSubnet)).
+		Watches(
+			&requeueipv1.IPBlock{},
+			handler.EnqueueRequestsFromMapFunc(mapFuncForSubnet),
+		).
+		Watches(
+			&requeueipv1.IPPool{},
+			handler.EnqueueRequestsFromMapFunc(mapFuncForSubnet),
+			builder.WithPredicates(IPPoolDeletedPredicate{}),
+		).
 		Complete(r)
 }
 
@@ -68,6 +79,26 @@ var mapFuncForSubnet = func(ctx context.Context, o client.Object) []reconcile.Re
 	return []reconcile.Request{{NamespacedName: types.NamespacedName{Name: v}}}
 }
 
+type IPPoolDeletedPredicate struct {
+	predicate.Funcs
+}
+
+func (IPPoolDeletedPredicate) Create(event.CreateEvent) bool {
+	return false
+}
+
+func (IPPoolDeletedPredicate) Delete(event.DeleteEvent) bool {
+	return true
+}
+
+func (IPPoolDeletedPredicate) Update(event.UpdateEvent) bool {
+	return false
+}
+
+func (IPPoolDeletedPredicate) Generic(event.GenericEvent) bool {
+	return false
+}
+
 var _ reconcile.Reconciler = &subnetReconciler{}
 
 func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -77,11 +108,11 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if !rn.DeletionTimestamp.IsZero() {
-		done, err := r.cleanUpSubnet(ctx, &rn)
+		cleaned, err := r.cleanUpSubnet(ctx, &rn)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if done {
+		if cleaned {
 			return ctrl.Result{}, nil
 		}
 	}
@@ -143,11 +174,12 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // cleanUpSubnet removes Subnet's finalizer when it is not referenced by any
 // IPPools.
-func (r *subnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv1.Subnet) (bool, error) {
+func (r *subnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv1.Subnet) (cleaned bool, err error) {
 	if subnet.Status.BlockCount == nil {
 		return false, nil
 	}
 
+	// The number of IPBlocks used in the cluster will not exceed the int limit.
 	used, err := strconv.Atoi(subnet.Status.BlockCount.Used)
 	if err != nil {
 		return false, err
@@ -156,21 +188,23 @@ func (r *subnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv
 		return false, nil
 	}
 
+	// Wait until all referenced IPPools disappear before removing the Subnet
+	// finalizer. IPPool deletion may lag behind IPBlock deletion, so IPBlock
+	// events alone are not sufficient to reliably drive this cleanup. For this
+	// reason, the controller also watches IPPool delete events.
 	var rpList requeueipv1.IPPoolList
 	if err := r.client.List(
 		ctx,
 		&rpList,
 		client.MatchingLabels{consts.LabelRefSubnet: subnet.Name},
+		client.Limit(1),
 		client.UnsafeDisableDeepCopy,
 	); err != nil {
 		return false, err
 	}
 
-	for i := 0; i < len(rpList.Items); i++ {
-		rp := &rpList.Items[i]
-		if rp.DeletionTimestamp.IsZero() {
-			return false, nil
-		}
+	if len(rpList.Items) != 0 {
+		return false, nil
 	}
 
 	controllerutil.RemoveFinalizer(subnet, consts.RFinalizer)
@@ -178,9 +212,7 @@ func (r *subnetReconciler) cleanUpSubnet(ctx context.Context, subnet *requeueipv
 		return false, err
 	}
 
-	// Delete Subnet metrics.
 	metrics.DeleteSubnet(subnet.Name)
-
 	return true, nil
 }
 
@@ -192,9 +224,7 @@ func getTotalIPRanges(subnet *requeueipv1.Subnet) (*iprange.IPRanges, error) {
 		return nil, err
 	}
 
-	// Excluded IP ranges are not specified.
-	n := len(subnet.Spec.Excluded)
-	if n == 0 {
+	if len(subnet.Spec.Excluded) == 0 {
 		return total, nil
 	}
 
@@ -208,7 +238,7 @@ func getTotalIPRanges(subnet *requeueipv1.Subnet) (*iprange.IPRanges, error) {
 		return total, nil
 	}
 
-	cidrs := make([]string, 0, len(subnet.Spec.Excluded))
+	var cidrs []string
 	iter := excluded.CIDRIterator()
 	for {
 		cidr := iter.Next()
@@ -221,14 +251,17 @@ func getTotalIPRanges(subnet *requeueipv1.Subnet) (*iprange.IPRanges, error) {
 			bits = 128
 		}
 
-		// Exclude at least one IPBlock (unit).
+		// Allocation is performed in IPBlock-sized units. If an excluded CIDR
+		// is smaller than one IPBlock, round it down to the containing IPBlock
+		// so the whole allocation unit is reserved.
 		ones, _ := cidr.Mask.Size()
 		if ones > int(*subnet.Spec.BlockSize) {
 			cidr.Mask = net.CIDRMask(int(*subnet.Spec.BlockSize), bits)
 			cidr.IP = cidr.IP.Mask(cidr.Mask)
 		}
 
-		// Use CIDR strings to re-parse into IPRanges.
+		// Re-parse the normalized CIDRs as IPRanges before subtracting them
+		// from the Subnet's total ranges.
 		cidrs = append(cidrs, cidr.String())
 	}
 

@@ -78,11 +78,11 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	if !rp.DeletionTimestamp.IsZero() {
-		done, err := r.cleanUpIPool(ctx, &rp)
+		cleaned, err := r.cleanUpIPool(ctx, &rp)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if done {
+		if cleaned {
 			return ctrl.Result{}, nil
 		}
 	}
@@ -142,11 +142,12 @@ func (r *poolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 // cleanUpIPool removes IPPool's finalizer when it is not referenced by any IP
 // and releases its corresponding IPBlocks.
-func (r *poolReconciler) cleanUpIPool(ctx context.Context, pool *requeueipv1.IPPool) (bool, error) {
+func (r *poolReconciler) cleanUpIPool(ctx context.Context, pool *requeueipv1.IPPool) (cleaned bool, err error) {
 	if pool.Status.Count == nil {
 		return false, nil
 	}
 
+	// The number of IPs used in the cluster will not exceed the int limit.
 	used, err := strconv.Atoi(pool.Status.Count.Used)
 	if err != nil {
 		return false, err
@@ -171,13 +172,12 @@ func (r *poolReconciler) cleanUpIPool(ctx context.Context, pool *requeueipv1.IPP
 		return false, err
 	}
 
-	// Delete IPPool metrics.
 	metrics.DeleteIPPool(pool.Namespace, pool.Name)
-
 	return true, nil
 }
 
-// setIPMetrics sets custom IP metrics.
+// setIPMetrics sets custom IP metrics. Related metrics are cleaned up by Pod GC
+// controller.
 func setIPMetrics(ips []requeueipv1.IP) {
 	for i := 0; i < len(ips); i++ {
 		ri := &ips[i]
