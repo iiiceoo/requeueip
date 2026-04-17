@@ -22,20 +22,23 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var (
-	// The Subnet does not have enough IP blocks for IP address assignments.
-	errInsufficientIPBlocks = errors.New("available IPBlocks are insufficient")
-)
+type requeueError struct {
+	result ctrl.Result
+}
 
-type errRequeue ctrl.Result
-
-func (e *errRequeue) Error() string {
+func (e *requeueError) Error() string {
 	return "requeue"
 }
 
-// newErrorRequeue returns an error for requeuing.
-func newErrorRequeue() error {
-	return &errRequeue{Requeue: true}
+func (e *requeueError) Result() ctrl.Result {
+	return e.result
+}
+
+// newRequeueError returns an error carrying a reconcile result.
+func newRequeueError() error {
+	return &requeueError{
+		result: ctrl.Result{Requeue: true},
+	}
 }
 
 // ignoreRequeue converts error to the result of Reconciler.
@@ -44,9 +47,9 @@ func ignoreRequeue(err error) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	var requeue *errRequeue
+	var requeue interface{ Result() ctrl.Result }
 	if errors.As(err, &requeue) {
-		return ctrl.Result(*requeue), nil
+		return requeue.Result(), nil
 	}
 
 	return ctrl.Result{}, err

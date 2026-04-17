@@ -261,7 +261,7 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 		// Do not skip the Subnet that is not ready, but try again later,
 		// respecting the order of candidate Subnets as much as possible.
 		if rn.Status.BlockCount == nil {
-			return nil, newErrorRequeue()
+			return nil, newRequeueError()
 		}
 
 		step, err := net.CountFromMaskSize(*rn.Spec.Version, int(*rn.Spec.BlockSize))
@@ -278,9 +278,8 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 	}
 
 	return nil, fmt.Errorf(
-		"no Subnets are available in %s: invalid Subnet or %w",
+		"no Subnets are available in %s: invalid Subnet or available IPBlocks are insufficient",
 		claim.Spec.Subnets,
-		errInsufficientIPBlocks,
 	)
 }
 
@@ -493,7 +492,7 @@ func (r *claimReconciler) scaleUp(ctx context.Context, alloc *ipBlockAllocation)
 	}
 
 	if alloc.freeBlockCount.Cmp(big.NewInt(int64(expect))) < 0 {
-		return errInsufficientIPBlocks
+		return fmt.Errorf("available IPBlocks are insufficient")
 	}
 
 	blocks, err := r.claimIPBlocks(ctx, alloc, len(rbList.Items), expect)
@@ -566,7 +565,7 @@ func (r *claimReconciler) claimIPBlocks(
 	if len(errs) != 0 {
 		err := utilerrors.NewAggregate(errs)
 		if apierrors.IsAlreadyExists(err) {
-			return nil, newErrorRequeue()
+			return nil, newRequeueError()
 		}
 		return nil, err
 	}
