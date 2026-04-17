@@ -123,7 +123,7 @@ func run(ctx context.Context) error {
 	if err := controller.NewIPPoolClaimReconciler(
 		mgr.GetClient(),
 		mgr.GetAPIReader(),
-		mgr.GetEventRecorderFor(consts.RController),
+		mgr.GetEventRecorder(consts.RController),
 	).SetupWithManager(mgr); err != nil {
 		return err
 	}

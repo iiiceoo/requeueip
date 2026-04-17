@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,7 +44,7 @@ import (
 	"github.com/iiiceoo/requeueip/pkg/net"
 )
 
-func NewIPPoolClaimReconciler(c client.Client, reader client.Reader, recorder record.EventRecorder) *claimReconciler {
+func NewIPPoolClaimReconciler(c client.Client, reader client.Reader, recorder events.EventRecorder) *claimReconciler {
 	return &claimReconciler{
 		client:   c,
 		reader:   reader,
@@ -55,7 +55,7 @@ func NewIPPoolClaimReconciler(c client.Client, reader client.Reader, recorder re
 type claimReconciler struct {
 	client   client.Client
 	reader   client.Reader
-	recorder record.EventRecorder
+	recorder events.EventRecorder
 }
 
 func (r *claimReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -246,7 +246,7 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 		if err := r.client.Get(ctx, types.NamespacedName{Name: s}, &rn); err != nil {
 			if apierrors.IsNotFound(err) {
 				msg := fmt.Sprintf("Candidate Subnet %s does not exist", s)
-				r.recorder.Eventf(claim, corev1.EventTypeWarning, "SubnetNotFound", msg)
+				r.recorder.Eventf(claim, nil, corev1.EventTypeWarning, "SubnetNotFound", "SelectSubnet", msg)
 				continue
 			}
 			return nil, err
@@ -254,7 +254,7 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 
 		if *rn.Spec.Version != claim.Spec.Version {
 			msg := fmt.Sprintf("Candidate Subnet %s is %s but claimed as %s", rn.Name, *rn.Spec.Version, claim.Spec.Version)
-			r.recorder.Eventf(claim, corev1.EventTypeWarning, "SubnetVersionMismatch", msg)
+			r.recorder.Eventf(claim, nil, corev1.EventTypeWarning, "SubnetVersionMismatch", "SelectSubnet", msg)
 			continue
 		}
 
