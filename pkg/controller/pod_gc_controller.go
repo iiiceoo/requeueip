@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,6 +58,14 @@ type PodTerminatingPredicate struct {
 	predicate.Funcs
 }
 
+func (PodTerminatingPredicate) Create(event.CreateEvent) bool {
+	return false
+}
+
+func (PodTerminatingPredicate) Delete(event.DeleteEvent) bool {
+	return true
+}
+
 func (PodTerminatingPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectNew == nil {
 		return false
@@ -68,8 +75,16 @@ func (PodTerminatingPredicate) Update(e event.UpdateEvent) bool {
 	return !pod.DeletionTimestamp.IsZero()
 }
 
+func (PodTerminatingPredicate) Generic(event.GenericEvent) bool {
+	return false
+}
+
 var _ reconcile.Reconciler = &podGCReconciler{}
 
+// Reconcile garbage-collects IP CRs for Pods that remain in terminating state
+// beyond their grace period. When the Pod has already been deleted (IP CR is
+// reclaimed automatically through OwnerReference), it only removes the
+// corresponding Pod metrics.
 func (r *podGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var pod corev1.Pod
 	if err := r.client.Get(ctx, req.NamespacedName, &pod); err != nil {
@@ -84,17 +99,18 @@ func (r *podGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	ok, err := r.isRequeueIPPod(ctx, &pod)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if !ok {
+	if !isRequeueIPPod(&pod) {
 		return ctrl.Result{}, nil
 	}
 
-	now := time.Now()
-	gracePeriod := time.Duration(*pod.DeletionGracePeriodSeconds) * time.Second
+	gracePeriodSeconds := int64(0)
+	if pod.DeletionGracePeriodSeconds != nil {
+		gracePeriodSeconds = *pod.DeletionGracePeriodSeconds
+	}
+	gracePeriod := time.Duration(gracePeriodSeconds) * time.Second
 	terminatedTime := pod.DeletionTimestamp.Time.Add(gracePeriod)
+
+	now := time.Now()
 	if now.Before(terminatedTime) {
 		return ctrl.Result{RequeueAfter: terminatedTime.Sub(now)}, nil
 	}
@@ -107,21 +123,23 @@ func (r *podGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	); err != nil {
 		return ctrl.Result{}, err
 	}
-	metrics.DeletePodIP(pod.Namespace, pod.Name)
 
+	metrics.DeletePodIP(pod.Namespace, pod.Name)
 	return ctrl.Result{}, nil
 }
 
-// isRequeueIPPod reports whether Pod is using RequeueIP.
-func (r *podGCReconciler) isRequeueIPPod(ctx context.Context, pod *corev1.Pod) (bool, error) {
+// isRequeueIPPod reports whether Pod is using RequeueIP. StatefulSet Pods are
+// excluded because their IP GC is handled by sts_gc_controller, which needs
+// ordinal-aware scale-down semantics instead of Pod-level terminating events.
+func isRequeueIPPod(pod *corev1.Pod) bool {
 	owner := metav1.GetControllerOf(pod)
 	if owner == nil {
-		return false, nil
+		return false
 	}
 
 	if owner.APIVersion == appsv1.SchemeGroupVersion.String() &&
 		owner.Kind == consts.KindStatefulSet {
-		return false, nil
+		return false
 	}
 
 	_, v4Subnet := pod.Annotations[consts.AnnoIPv4Subnets]
@@ -131,16 +149,6 @@ func (r *podGCReconciler) isRequeueIPPod(ctx context.Context, pod *corev1.Pod) (
 
 	v4Enabled := v4Subnet || v4IPPool
 	v6Enabled := v6Subnet || v6IPPool
-	if v4Enabled || v6Enabled {
-		return true, nil
-	}
 
-	var ns corev1.Namespace
-	if err := r.client.Get(ctx, types.NamespacedName{Name: pod.Namespace}, &ns); err != nil {
-		return false, err
-	}
-	_, v4Enabled = ns.Annotations[consts.AnnoIPv4Subnets]
-	_, v6Enabled = ns.Annotations[consts.AnnoIPv6Subnets]
-
-	return v4Enabled || v6Enabled, nil
+	return v4Enabled || v6Enabled
 }

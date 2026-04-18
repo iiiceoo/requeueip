@@ -24,7 +24,6 @@ import (
 	"strings"
 	"sync"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,56 +47,22 @@ func newRPCClient(c client.Client) *rpcClient {
 	}
 }
 
-// parseClaims parses Pod or Namespace annotations as IPPoolClaim spec.
-func (c *rpcClient) parseClaims(
+// ensureClaimsForWorkload ensures IPPoolClaims declared by the workload
+// template annotations.
+func (c *rpcClient) ensureClaimsForWorkload(
 	ctx context.Context,
-	namespace string,
+	object client.Object,
 	annotations map[string]string,
-	replicas int32,
-) ([]requeueipv1.IPPoolClaimSpec, error) {
-	v4Str, v6Str := "", ""
-	if len(annotations) != 0 {
-		v4Str = annotations[consts.AnnoIPv4Subnets]
-		v6Str = annotations[consts.AnnoIPv6Subnets]
+	replicas *int32,
+) error {
+	// The workload has been deleted, do nothing, OwnerReference will ensure
+	// that the relevant IPPoolClaims are recycled.
+	if !object.GetDeletionTimestamp().IsZero() {
+		return nil
 	}
 
-	if v4Str == "" && v6Str == "" {
-		var ns corev1.Namespace
-		if err := c.client.Get(ctx, types.NamespacedName{Name: namespace}, &ns); err != nil {
-			return nil, err
-		}
-		if len(ns.Annotations) == 0 {
-			return nil, nil
-		}
-
-		v4Str = ns.Annotations[consts.AnnoIPv4Subnets]
-		v6Str = ns.Annotations[consts.AnnoIPv6Subnets]
-	}
-
-	if v4Str == "" && v6Str == "" {
-		return nil, nil
-	}
-
-	v4Subnets := parseArray(v4Str)
-	v6Subnets := parseArray(v6Str)
-
-	var claims []requeueipv1.IPPoolClaimSpec
-	if len(v4Subnets) != 0 {
-		claims = append(claims, requeueipv1.IPPoolClaimSpec{
-			Version:  net.IPv4,
-			Subnets:  v4Subnets,
-			Replicas: replicas,
-		})
-	}
-	if len(v6Subnets) != 0 {
-		claims = append(claims, requeueipv1.IPPoolClaimSpec{
-			Version:  net.IPv6,
-			Subnets:  v6Subnets,
-			Replicas: replicas,
-		})
-	}
-
-	return claims, nil
+	claims := parseClaims(annotations, *replicas)
+	return c.ensureClaims(ctx, claims, object)
 }
 
 // ensureClaims updates IPPoolClaims with specified specs, or creates them if
@@ -173,6 +138,40 @@ func (c *rpcClient) ensureClaim(ctx context.Context, spec *requeueipv1.IPPoolCla
 
 	rpc.Spec = *spec
 	return c.client.Update(ctx, &rpc)
+}
+
+// parseClaims parses workload template annotations as IPPoolClaim specs.
+func parseClaims(annotations map[string]string, replicas int32) []requeueipv1.IPPoolClaimSpec {
+	v4Str, v6Str := "", ""
+	if len(annotations) != 0 {
+		v4Str = annotations[consts.AnnoIPv4Subnets]
+		v6Str = annotations[consts.AnnoIPv6Subnets]
+	}
+
+	if v4Str == "" && v6Str == "" {
+		return nil
+	}
+
+	v4Subnets := parseArray(v4Str)
+	v6Subnets := parseArray(v6Str)
+
+	var claims []requeueipv1.IPPoolClaimSpec
+	if len(v4Subnets) != 0 {
+		claims = append(claims, requeueipv1.IPPoolClaimSpec{
+			Version:  net.IPv4,
+			Subnets:  v4Subnets,
+			Replicas: replicas,
+		})
+	}
+	if len(v6Subnets) != 0 {
+		claims = append(claims, requeueipv1.IPPoolClaimSpec{
+			Version:  net.IPv6,
+			Subnets:  v6Subnets,
+			Replicas: replicas,
+		})
+	}
+
+	return claims
 }
 
 // parseArray parses a comma-separated string into a slice.

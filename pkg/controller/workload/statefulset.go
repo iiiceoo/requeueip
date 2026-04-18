@@ -55,23 +55,12 @@ func (r *statefulSetReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// The workload has been deleted, do nothing, OwnerReference will ensure
-	// that the relevant IPPoolClaims are recycled.
-	if !sts.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
-	}
-
-	claims, err := r.rpcClient.parseClaims(
+	if err := r.rpcClient.ensureClaimsForWorkload(
 		ctx,
-		sts.Namespace,
+		&sts,
 		sts.Spec.Template.ObjectMeta.Annotations,
-		*sts.Spec.Replicas,
-	)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.rpcClient.ensureClaims(ctx, claims, &sts); err != nil {
+		sts.Spec.Replicas,
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 

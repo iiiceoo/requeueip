@@ -55,23 +55,12 @@ func (r *deploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// The workload has been deleted, do nothing, OwnerReference will ensure
-	// that the relevant IPPoolClaims are recycled.
-	if !deploy.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
-	}
-
-	claims, err := r.rpcClient.parseClaims(
+	if err := r.rpcClient.ensureClaimsForWorkload(
 		ctx,
-		deploy.Namespace,
+		&deploy,
 		deploy.Spec.Template.ObjectMeta.Annotations,
-		*deploy.Spec.Replicas,
-	)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.rpcClient.ensureClaims(ctx, claims, &deploy); err != nil {
+		deploy.Spec.Replicas,
+	); err != nil {
 		return ctrl.Result{}, err
 	}
 

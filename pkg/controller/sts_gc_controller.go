@@ -23,9 +23,7 @@ import (
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,7 +102,7 @@ func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	ok, err := r.isRequeueIPSTS(ctx, &sts)
+	ok, err := isRequeueIPSTS(&sts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -158,7 +156,7 @@ func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 // isRequeueIPSTS reports whether StatefulSet is using RequeueIP.
-func (r *stsGCReconciler) isRequeueIPSTS(ctx context.Context, sts *appsv1.StatefulSet) (bool, error) {
+func isRequeueIPSTS(sts *appsv1.StatefulSet) (bool, error) {
 	annos := sts.Spec.Template.Annotations
 	_, v4Subnet := annos[consts.AnnoIPv4Subnets]
 	_, v6Subnet := annos[consts.AnnoIPv6Subnets]
@@ -167,16 +165,6 @@ func (r *stsGCReconciler) isRequeueIPSTS(ctx context.Context, sts *appsv1.Statef
 
 	v4Enabled := v4Subnet || v4IPPool
 	v6Enabled := v6Subnet || v6IPPool
-	if v4Enabled || v6Enabled {
-		return true, nil
-	}
-
-	var ns corev1.Namespace
-	if err := r.client.Get(ctx, types.NamespacedName{Name: sts.Namespace}, &ns); err != nil {
-		return false, err
-	}
-	_, v4Enabled = ns.Annotations[consts.AnnoIPv4Subnets]
-	_, v6Enabled = ns.Annotations[consts.AnnoIPv6Subnets]
 
 	return v4Enabled || v6Enabled, nil
 }
