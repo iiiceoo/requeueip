@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"math/big"
@@ -113,15 +114,9 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ignoreRequeue(err)
 	}
 
-	// alloc.poolSize is stale.
-	ranges, err := iprange.Parse(alloc.pool.Spec.Ranges...)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	status := &requeueipv1.IPPoolClaimStatus{
 		Subnet:   &alloc.subnet.Name,
-		PoolSize: ptr.To(int32(ranges.Size().Int64())),
+		PoolSize: ptr.To(int32(alloc.poolRanges.Size().Int64())),
 	}
 
 	setIPPoolClaimMetrics(alloc.claim, status)
@@ -200,7 +195,7 @@ func (r *claimReconciler) getOrMarkIPPool(
 
 	subnet, err := r.selectSubnet(ctx, claim)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to select Subnet from candidates: %w", err)
+		return nil, nil, fmt.Errorf("failed to select Subnet from candidates %s: %w", claim.Spec.Subnets, err)
 	}
 
 	labels := map[string]string{
@@ -241,11 +236,11 @@ func (r *claimReconciler) getOrMarkIPPool(
 
 // selectSubnet returns the first Subnet with sufficient IPBlocks.
 func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.IPPoolClaim) (*requeueipv1.Subnet, error) {
-	for _, s := range claim.Spec.Subnets {
+	for _, subnet := range claim.Spec.Subnets {
 		var rn requeueipv1.Subnet
-		if err := r.client.Get(ctx, types.NamespacedName{Name: s}, &rn); err != nil {
+		if err := r.client.Get(ctx, types.NamespacedName{Name: subnet}, &rn); err != nil {
 			if apierrors.IsNotFound(err) {
-				msg := fmt.Sprintf("Candidate Subnet %s does not exist", s)
+				msg := fmt.Sprintf("Candidate Subnet %s does not exist", subnet)
 				r.recorder.Eventf(claim, nil, corev1.EventTypeWarning, "SubnetNotFound", "SelectSubnet", msg)
 				continue
 			}
@@ -253,7 +248,12 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 		}
 
 		if *rn.Spec.Version != claim.Spec.Version {
-			msg := fmt.Sprintf("Candidate Subnet %s is %s but claimed as %s", rn.Name, *rn.Spec.Version, claim.Spec.Version)
+			msg := fmt.Sprintf(
+				"Candidate Subnet %s is %s but claimed as %s",
+				rn.Name,
+				*rn.Spec.Version,
+				claim.Spec.Version,
+			)
 			r.recorder.Eventf(claim, nil, corev1.EventTypeWarning, "SubnetVersionMismatch", "SelectSubnet", msg)
 			continue
 		}
@@ -272,27 +272,33 @@ func (r *claimReconciler) selectSubnet(ctx context.Context, claim *requeueipv1.I
 		count := new(big.Int)
 		count.SetString(rn.Status.BlockCount.Free, 10)
 		count.Mul(count, step)
-		if count.Cmp(big.NewInt(int64(claim.Spec.Replicas))) >= 0 {
-			return &rn, nil
+		if count.Cmp(big.NewInt(int64(claim.Spec.Replicas))) < 0 {
+			msg := fmt.Sprintf(
+				"Candidate Subnet %s does not have enough free IPBlocks for %d replicas",
+				rn.Name,
+				claim.Spec.Replicas,
+			)
+			r.recorder.Eventf(claim, nil, corev1.EventTypeWarning, "SubnetInsufficientIPBlocks", "SelectSubnet", msg)
+			continue
 		}
+
+		return &rn, nil
 	}
 
-	return nil, fmt.Errorf(
-		"no Subnets are available in %s: invalid Subnet or available IPBlocks are insufficient",
-		claim.Spec.Subnets,
-	)
+	return nil, errors.New("invalid Subnet or available IPBlocks are insufficient")
 }
 
 // scale scales the size of the IPPool up or down to workload replicas.
 func (r *claimReconciler) scale(ctx context.Context, alloc *ipBlockAllocation) error {
-	if alloc.replicas == alloc.poolSize {
+	size := int(alloc.poolRanges.Size().Int64())
+	if alloc.replicas == size {
 		return nil
 	}
 
-	if alloc.replicas > alloc.poolSize {
-		if err := r.scaleUp(ctx, alloc); err != nil {
+	if alloc.replicas < size {
+		if err := r.scaleDown(ctx, alloc); err != nil {
 			return fmt.Errorf(
-				"failed to scale up the size of IPPool to %d from Subnet %s: %w",
+				"failed to scale down the size of IPPool to %d from Subnet %s: %v",
 				alloc.replicas,
 				alloc.subnet.Name,
 				err,
@@ -301,9 +307,9 @@ func (r *claimReconciler) scale(ctx context.Context, alloc *ipBlockAllocation) e
 		return nil
 	}
 
-	if err := r.scaleDown(ctx, alloc); err != nil {
+	if err := r.scaleUp(ctx, alloc); err != nil {
 		return fmt.Errorf(
-			"failed to scale down the size of IPPool to %d from Subnet %s: %v",
+			"failed to scale up the size of IPPool to %d from Subnet %s: %w",
 			alloc.replicas,
 			alloc.subnet.Name,
 			err,
@@ -315,14 +321,13 @@ func (r *claimReconciler) scale(ctx context.Context, alloc *ipBlockAllocation) e
 
 // A set of parameters commonly required in a scale process.
 type ipBlockAllocation struct {
-	// IPPool to be scaled up/down.
+	// IPPool to be scaled up/down. It is updated in-place during scaling and
+	// always reflects the latest desired spec.
 	pool *requeueipv1.IPPool
 
-	// The total IP ranges of the IPPool.
+	// The total IP ranges of the IPPool. It is updated together with pool and
+	// always reflects the latest pool.spec.ranges.
 	poolRanges *iprange.IPRanges
-
-	// The current size of the IPPool.
-	poolSize int
 
 	// Subnet to which IPPool belongs.
 	subnet *requeueipv1.Subnet
@@ -375,7 +380,6 @@ func getIPBlockAllocation(
 	return &ipBlockAllocation{
 		pool:           pool,
 		poolRanges:     ranges,
-		poolSize:       int(ranges.Size().Int64()),
 		subnet:         subnet,
 		freeRanges:     free,
 		freeBlockCount: count,
@@ -392,6 +396,7 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 		return nil
 	}
 
+	// The number of IPs used in the cluster will not exceed the int limit.
 	used, err := strconv.Atoi(alloc.pool.Status.Count.Used)
 	if err != nil {
 		return err
@@ -416,7 +421,8 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 	}
 
 	old := alloc.pool.DeepCopy()
-	alloc.pool.Spec.Ranges = ranges.Strings()
+	alloc.poolRanges = ranges
+	alloc.pool.Spec.Ranges = alloc.poolRanges.Strings()
 	if err := r.client.Patch(ctx, alloc.pool, client.MergeFrom(old)); err != nil {
 		return err
 	}
@@ -446,12 +452,12 @@ func (r *claimReconciler) scaleDown(ctx context.Context, alloc *ipBlockAllocatio
 		return err
 	}
 
-	ipTotal := len(rbList.Items) * alloc.step
-	if ipTotal-alloc.replicas < alloc.step {
+	total := len(rbList.Items) * alloc.step
+	if total-alloc.replicas < alloc.step {
 		return nil
 	}
 
-	if err := r.releaseIPBlocks(ctx, alloc.pool, rbList.Items); err != nil {
+	if err := r.releaseIPBlocks(ctx, alloc, rbList.Items); err != nil {
 		return fmt.Errorf("failed to release IPBlocks: %v", err)
 	}
 
@@ -474,25 +480,25 @@ func (r *claimReconciler) scaleUp(ctx context.Context, alloc *ipBlockAllocation)
 		return err
 	}
 
-	ipTotal := len(rbList.Items) * alloc.step
-	if alloc.replicas <= ipTotal {
+	total := len(rbList.Items) * alloc.step
+	if alloc.replicas <= total {
 		if err := r.scaleUpWithinIPBlocks(ctx, alloc, rbList.Items); err != nil {
 			return err
 		}
-		if ipTotal-alloc.replicas >= alloc.step {
-			return r.releaseIPBlocks(ctx, alloc.pool, rbList.Items)
+		if total-alloc.replicas >= alloc.step {
+			return r.releaseIPBlocks(ctx, alloc, rbList.Items)
 		}
 		return nil
 	}
 
-	delta := alloc.replicas - ipTotal
+	delta := alloc.replicas - total
 	expect := delta / alloc.step
 	if delta%alloc.step != 0 {
 		expect++
 	}
 
 	if alloc.freeBlockCount.Cmp(big.NewInt(int64(expect))) < 0 {
-		return fmt.Errorf("available IPBlocks are insufficient")
+		return errors.New("available IPBlocks are insufficient")
 	}
 
 	blocks, err := r.claimIPBlocks(ctx, alloc, len(rbList.Items), expect)
@@ -500,7 +506,8 @@ func (r *claimReconciler) scaleUp(ctx context.Context, alloc *ipBlockAllocation)
 		return err
 	}
 
-	return r.scaleUpWithinIPBlocks(ctx, alloc, append(rbList.Items, blocks...))
+	blocks = append(rbList.Items, blocks...)
+	return r.scaleUpWithinIPBlocks(ctx, alloc, blocks)
 }
 
 // scaleUpWithinIPBlocks scales up IPPool based on existing IPBlocks.
@@ -517,10 +524,11 @@ func (r *claimReconciler) scaleUpWithinIPBlocks(
 	delta := int64(alloc.replicas) - alloc.poolRanges.Size().Int64()
 	dr := br.Diff(alloc.poolRanges).Slice(consts.BigInt[0], big.NewInt(delta-1))
 
-	// The version of alloc.poolRanges may be Unknown when init an empty IPPool.
-	// Never never use alloc.poolRanges.Union(dr).
+	// alloc.poolRanges may be an empty IPRanges. Never never use
+	// alloc.poolRanges.Union(dr).
 	old := alloc.pool.DeepCopy()
-	alloc.pool.Spec.Ranges = dr.Union(alloc.poolRanges).Strings()
+	alloc.poolRanges = dr.Union(alloc.poolRanges)
+	alloc.pool.Spec.Ranges = alloc.poolRanges.Strings()
 
 	return r.client.Patch(ctx, alloc.pool, client.MergeFrom(old))
 }
@@ -535,7 +543,7 @@ func (r *claimReconciler) claimIPBlocks(
 	var wg sync.WaitGroup
 	errCh := make(chan error, expect)
 	blockCh := make(chan *requeueipv1.IPBlock, expect)
-	for i := 1; i <= expect; i++ {
+	for i := range expect {
 		id := fmt.Sprintf("%s-%d", alloc.pool.Name, start+i)
 		h.Write([]byte(id))
 		hash := h.Sum32()
@@ -567,6 +575,7 @@ func (r *claimReconciler) claimIPBlocks(
 		if apierrors.IsAlreadyExists(err) {
 			return nil, newRequeueError()
 		}
+
 		return nil, err
 	}
 
@@ -619,23 +628,22 @@ func (r *claimReconciler) claimIPBlock(
 }
 
 // releaseIPBlocks releases unused IPBlocks.
-func (r *claimReconciler) releaseIPBlocks(ctx context.Context, pool *requeueipv1.IPPool, blocks []requeueipv1.IPBlock) error {
-	ranges, err := iprange.Parse(pool.Spec.Ranges...)
-	if err != nil {
-		return err
-	}
-
+func (r *claimReconciler) releaseIPBlocks(
+	ctx context.Context,
+	alloc *ipBlockAllocation,
+	blocks []requeueipv1.IPBlock,
+) error {
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(blocks))
 	for i := 0; i < len(blocks); i++ {
 		i := i
 		wg.Go(func() {
-			br, err := net.NamesToCIDRIPRanges(pool.Spec.Version, blocks[i].Name)
+			br, err := net.NamesToCIDRIPRanges(alloc.pool.Spec.Version, blocks[i].Name)
 			if err != nil {
 				errCh <- err
 				return
 			}
-			if br.Intersect(ranges).Size().Sign() == 0 {
+			if br.Intersect(alloc.poolRanges).Size().Sign() == 0 {
 				errCh <- r.client.Delete(ctx, &blocks[i])
 			}
 		})
