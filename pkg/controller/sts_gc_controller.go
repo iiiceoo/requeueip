@@ -95,18 +95,13 @@ func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	// The StatefulSet has been deleted, do nothing, OwnerReference will ensure
+	// The StatefulSet is terminating, do nothing, OwnerReference will ensure
 	// that the relevant IPs are recycled.
 	if !sts.DeletionTimestamp.IsZero() {
-		metrics.DeleteSTSIP(sts.Namespace, sts.Name)
 		return ctrl.Result{}, nil
 	}
 
-	ok, err := isRequeueIPSTS(&sts)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if !ok {
+	if !isRequeueIPSTS(&sts) {
 		return ctrl.Result{}, nil
 	}
 
@@ -156,7 +151,7 @@ func (r *stsGCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 // isRequeueIPSTS reports whether StatefulSet is using RequeueIP.
-func isRequeueIPSTS(sts *appsv1.StatefulSet) (bool, error) {
+func isRequeueIPSTS(sts *appsv1.StatefulSet) bool {
 	annos := sts.Spec.Template.Annotations
 	_, v4Subnet := annos[consts.AnnoIPv4Subnets]
 	_, v6Subnet := annos[consts.AnnoIPv6Subnets]
@@ -166,7 +161,7 @@ func isRequeueIPSTS(sts *appsv1.StatefulSet) (bool, error) {
 	v4Enabled := v4Subnet || v4IPPool
 	v6Enabled := v6Subnet || v6IPPool
 
-	return v4Enabled || v6Enabled, nil
+	return v4Enabled || v6Enabled
 }
 
 // isRunningSTSPod reports whether Pod is controlled by StatefulSet and does not

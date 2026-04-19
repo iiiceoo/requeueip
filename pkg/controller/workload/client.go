@@ -55,8 +55,8 @@ func (c *rpcClient) ensureClaimsForWorkload(
 	annotations map[string]string,
 	replicas *int32,
 ) error {
-	// The workload has been deleted, do nothing, OwnerReference will ensure
-	// that the relevant IPPoolClaims are recycled.
+	// The workload is terminating, do nothing, OwnerReference will ensure that
+	// the relevant IPPoolClaims are recycled.
 	if !object.GetDeletionTimestamp().IsZero() {
 		return nil
 	}
