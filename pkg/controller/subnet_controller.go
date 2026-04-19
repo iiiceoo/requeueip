@@ -143,14 +143,10 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// Set custom Subnet metrics.
+	// Update Subnet status if its current status has changed.
 	totalCount := new(big.Int).Div(total.Size(), step)
 	usedCount := new(big.Int).Div(used.Size(), step)
 	blockSize := strconv.Itoa(int(*rn.Spec.BlockSize))
-	metrics.SubnetBlockTotal(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(totalCount.Int64()))
-	metrics.SubnetBlockUsage(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(usedCount.Int64()))
-
-	// Update Subnet status if its current status has changed.
 	status := &requeueipv1.SubnetStatus{
 		Free: free.Strings(),
 		BlockCount: &requeueipv1.BlockCount{
@@ -159,7 +155,10 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			Free:  new(big.Int).Div(free.Size(), step).String(),
 		},
 	}
+
 	if reflect.DeepEqual(status, &rn.Status) {
+		metrics.SubnetBlockTotal(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(totalCount.Int64()))
+		metrics.SubnetBlockUsage(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(usedCount.Int64()))
 		return ctrl.Result{}, nil
 	}
 
@@ -169,6 +168,8 @@ func (r *subnetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	metrics.SubnetBlockTotal(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(totalCount.Int64()))
+	metrics.SubnetBlockUsage(rn.Name, *rn.Spec.Version, rn.Spec.CIDR, blockSize).Set(float64(usedCount.Int64()))
 	return ctrl.Result{}, nil
 }
 

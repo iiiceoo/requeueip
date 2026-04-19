@@ -93,7 +93,6 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 					return ctrl.Result{}, err
 				}
 			}
-			metrics.DeleteIPPoolClaim(claim.Namespace, claim.Name)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -119,8 +118,8 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		PoolSize: ptr.To(int32(alloc.poolRanges.Size().Int64())),
 	}
 
-	setIPPoolClaimMetrics(alloc.claim, status)
 	if reflect.DeepEqual(status, &alloc.claim.Status) {
+		setIPPoolClaimMetrics(alloc.claim, status)
 		return ctrl.Result{}, nil
 	}
 
@@ -130,6 +129,7 @@ func (r *claimReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	setIPPoolClaimMetrics(alloc.claim, status)
 	return ctrl.Result{}, nil
 }
 
