@@ -58,25 +58,22 @@ type PodTerminatingPredicate struct {
 	predicate.Funcs
 }
 
-func (PodTerminatingPredicate) Create(event.CreateEvent) bool {
-	return false
-}
+func (PodTerminatingPredicate) Create(e event.CreateEvent) bool {
+	if e.Object == nil {
+		return false
+	}
 
-func (PodTerminatingPredicate) Delete(event.DeleteEvent) bool {
-	return true
+	pod := e.Object.(*corev1.Pod)
+	return !pod.DeletionTimestamp.IsZero()
 }
 
 func (PodTerminatingPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectNew == nil {
 		return false
 	}
+
 	pod := e.ObjectNew.(*corev1.Pod)
-
 	return !pod.DeletionTimestamp.IsZero()
-}
-
-func (PodTerminatingPredicate) Generic(event.GenericEvent) bool {
-	return false
 }
 
 var _ reconcile.Reconciler = &podGCReconciler{}
