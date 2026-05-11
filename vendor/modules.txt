@@ -40,7 +40,7 @@ github.com/fsnotify/fsnotify/internal
 # github.com/fxamacker/cbor/v2 v2.9.0
 ## explicit; go 1.20
 github.com/fxamacker/cbor/v2
-# github.com/getkin/kin-openapi v0.137.0
+# github.com/getkin/kin-openapi v0.138.0
 ## explicit; go 1.25
 github.com/getkin/kin-openapi/openapi3
 # github.com/go-logr/logr v1.4.3

@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/containernetworking/cni v1.3.0
-	github.com/getkin/kin-openapi v0.137.0
+	github.com/getkin/kin-openapi v0.138.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/iiiceoo/iprange v0.2.3
 	github.com/oapi-codegen/runtime v1.4.0
