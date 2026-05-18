@@ -125,7 +125,7 @@ github.com/oasdiff/yaml
 # github.com/oasdiff/yaml3 v0.0.12
 ## explicit; go 1.22.5
 github.com/oasdiff/yaml3
-# github.com/onsi/ginkgo/v2 v2.28.3
+# github.com/onsi/ginkgo/v2 v2.29.0
 ## explicit; go 1.25.0
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config
